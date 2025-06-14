@@ -16,7 +16,22 @@ export const AdminFooter = () => {
   return (
     <footer className="border-t bg-background px-4 py-4 lg:px-6">
       <div className="container mx-auto flex flex-col items-center justify-between gap-2 text-sm text-muted-foreground sm:flex-row">
-        <p>© {currentYear} Avenue Fashion. All Rights Reserved.</p>
+        <p>
+          © {currentYear}{" "}
+          <Link href="/" className="hover:underline">
+            Avenue Fashion.
+          </Link>{" "}
+          All rights reserved. Powered by{" "}
+          <Link
+            href="https://nyota.africa"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-semibold text-foreground hover:underline"
+          >
+            Nyota
+          </Link>
+          .
+        </p>
         <div className="flex items-center gap-4">
           <Link href="/" className="hover:text-primary">
             Avenue Fashion
