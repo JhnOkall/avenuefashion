@@ -41,21 +41,22 @@ const TableSkeleton = () => (
  * 5. Passing the fetched data to the interactive `UserDataTable` client component.
  *
  * @param {object} props - The component props.
- * @param {object} [props.searchParams] - The URL search parameters provided by Next.js.
+ * @param {Promise<object>} [props.searchParams] - The URL search parameters provided by Next.js.
  * @returns {Promise<JSX.Element>} A promise that resolves to the rendered user management page.
  */
 // TODO: This page should be secured to ensure only users with an 'admin' role can access it. This check is likely handled in the parent `(admin)/layout.tsx`, but verifying its presence is critical.
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams?: { searchQuery?: string; page?: string };
+  searchParams?: Promise<{ searchQuery?: string; page?: string }>;
 }) {
   /**
    * Reads the 'searchQuery' and 'page' from the URL search parameters,
    * providing empty or default values if they are not present.
    */
-  const query = searchParams?.searchQuery || "";
-  const currentPage = Number(searchParams?.page) || 1;
+  const resolvedSearchParams = await searchParams;
+  const query = resolvedSearchParams?.searchQuery || "";
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
 
   /**
    * Fetches the user data on the server based on the current search and pagination state.

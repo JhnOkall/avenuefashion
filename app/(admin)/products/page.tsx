@@ -41,7 +41,7 @@ const TableSkeleton = () => (
  * 5. Passing the fetched data to the interactive `ProductDataTable` client component.
  *
  * @param {object} props - The component props.
- * @param {object} [props.searchParams] - The URL search parameters provided by Next.js.
+ * @param {Promise<object>} [props.searchParams] - The URL search parameters provided by Next.js.
  * @returns {Promise<JSX.Element>} A promise that resolves to the rendered product management page.
  */
 // TODO: Add a `try...catch` block around the `fetchAdminProducts` call to gracefully handle potential API errors and display an error UI.
@@ -49,14 +49,15 @@ const TableSkeleton = () => (
 export default async function AdminProductsPage({
   searchParams,
 }: {
-  searchParams?: { searchQuery?: string; page?: string };
+  searchParams?: Promise<{ searchQuery?: string; page?: string }>;
 }) {
   /**
    * Reads the 'searchQuery' and 'page' from the URL search parameters,
    * providing empty or default values if they are not present.
    */
-  const query = searchParams?.searchQuery || "";
-  const currentPage = Number(searchParams?.page) || 1;
+  const resolvedSearchParams = await searchParams;
+  const query = resolvedSearchParams?.searchQuery || "";
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
 
   /**
    * Fetches the products data on the server based on the current search and pagination state.

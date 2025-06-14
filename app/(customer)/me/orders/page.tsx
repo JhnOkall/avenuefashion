@@ -49,14 +49,14 @@ const OrdersPageSkeleton = () => (
  * 5. Passing the fetched data to the interactive `OrdersList` client component.
  *
  * @param {object} props - The component props provided by Next.js.
- * @param {object} [props.searchParams] - The URL search parameters for filtering and pagination.
+ * @param {Promise<object>} [props.searchParams] - The URL search parameters for filtering and pagination.
  * @returns {Promise<JSX.Element>} A promise that resolves to the rendered "My Orders" page.
  */
 // TODO: Add a `try...catch` block around the `fetchMyOrders` call to gracefully handle potential API errors and render an error UI if necessary.
 export default async function MyOrdersPage({
   searchParams,
 }: {
-  searchParams?: { page?: string; status?: string };
+  searchParams?: Promise<{ page?: string; status?: string }>;
 }) {
   /**
    * Fetches the current user's session. This is a critical security step.
@@ -72,8 +72,9 @@ export default async function MyOrdersPage({
    * Reads the 'page' and 'status' from the URL search parameters, providing
    * sensible defaults if they are not present.
    */
-  const currentPage = Number(searchParams?.page) || 1;
-  const statusFilter = searchParams?.status || "all";
+  const resolvedSearchParams = await searchParams;
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
+  const statusFilter = resolvedSearchParams?.status || "all";
 
   /**
    * Fetches the orders data on the server based on the current filters and pagination.

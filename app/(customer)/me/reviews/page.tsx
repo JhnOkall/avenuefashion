@@ -46,14 +46,14 @@ const ReviewsPageSkeleton = () => (
  * 5. Passing the fetched data to the interactive `MyReviewsList` client component.
  *
  * @param {object} props - The component props provided by Next.js.
- * @param {object} [props.searchParams] - The URL search parameters for filtering and pagination.
+ * @param {Promise<object>} [props.searchParams] - The URL search parameters for filtering and pagination.
  * @returns {Promise<JSX.Element>} A promise that resolves to the rendered "My Reviews" page.
  */
 // TODO: Add a `try...catch` block around the `fetchMyReviews` call to gracefully handle potential API errors.
 export default async function MyReviewsPage({
   searchParams,
 }: {
-  searchParams?: { page?: string; rating?: string };
+  searchParams?: Promise<{ page?: string; rating?: string }>;
 }) {
   /**
    * Fetches the current user's session. This is a critical security step.
@@ -69,8 +69,9 @@ export default async function MyReviewsPage({
    * Reads the 'page' and 'rating' from the URL search parameters, providing
    * sensible defaults if they are not present.
    */
-  const currentPage = Number(searchParams?.page) || 1;
-  const ratingFilter = Number(searchParams?.rating) || undefined; // Use undefined if no rating is specified.
+  const resolvedSearchParams = await searchParams;
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
+  const ratingFilter = Number(resolvedSearchParams?.rating) || undefined; // Use undefined if no rating is specified.
 
   /**
    * Fetches the reviews data on the server based on the current filters and pagination.
