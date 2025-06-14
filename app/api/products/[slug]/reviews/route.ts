@@ -16,12 +16,14 @@ import '@/models/User';
  * @param {string} context.params.slug - The slug of the product whose reviews are being fetched.
  * @returns {Promise<NextResponse>} A JSON response with paginated reviews or an error message.
  */
-export async function GET(req: Request, { params }: { params: { slug: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
+  // Await the params Promise to access the route parameters
+  const resolvedParams = await params;
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
 
-    const { slug } = params;
+    const { slug } = resolvedParams;
     if (!slug) {
       return NextResponse.json({ message: 'Product slug is required.' }, { status: 400 });
     }
@@ -65,7 +67,7 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error fetching reviews for product slug ${params.slug}:`, error);
+    console.error(`Error fetching reviews for product slug ${resolvedParams.slug}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -80,7 +82,7 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
  * @param {string} context.params.slug - The slug of the product being reviewed.
  * @returns {Promise<NextResponse>} A JSON response with the newly created review or an error message.
  */
-export async function POST(req: Request, { params }: { params: { slug: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   /**
    * Fetches the current user's session. If no session exists, the user is unauthorized.
    */
@@ -89,11 +91,14 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
     return NextResponse.json({ message: 'Unauthorized. Please log in to leave a review.' }, { status: 401 });
   }
 
+  // Await the params Promise to access the route parameters
+  const resolvedParams = await params;
+
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
 
-    const { slug } = params;
+    const { slug } = resolvedParams;
     // Parses the JSON body from the incoming POST request.
     const body = await req.json();
     const { rating, title, text } = body;
@@ -154,7 +159,7 @@ export async function POST(req: Request, { params }: { params: { slug: string } 
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error creating review for product slug ${params.slug}:`, error);
+    console.error(`Error creating review for product slug ${resolvedParams.slug}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

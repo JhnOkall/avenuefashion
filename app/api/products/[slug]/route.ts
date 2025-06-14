@@ -14,12 +14,14 @@ import '@/models/Review';
  * @param {string} context.params.slug - The unique, URL-friendly slug of the product to fetch.
  * @returns {Promise<NextResponse>} A JSON response containing the detailed product data or an error message.
  */
-export async function GET(req: Request, { params }: { params: { slug: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
+  // Await the params Promise to access the route parameters
+  const resolvedParams = await params;
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
 
-    const { slug } = params;
+    const { slug } = resolvedParams;
 
     // Validates the presence of the required slug parameter.
     if (!slug) {
@@ -49,7 +51,7 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error fetching product with slug ${params.slug}:`, error);
+    console.error(`Error fetching product with slug ${resolvedParams.slug}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
