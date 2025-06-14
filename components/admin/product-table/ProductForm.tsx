@@ -129,11 +129,9 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
         const submissionData = {
           ...formData,
           price: Number(formData.price),
-          // Backend expects the brand field to be an ObjectId string.
-          brand: formData.brand,
+          // Type assertion to match the expected interface
+          brand: formData.brand as any,
         };
-        // The type assertion `as unknown as IBrand` is removed as the backend
-        // should handle the string ID.
 
         if (product) {
           await updateProduct(product._id.toString(), submissionData);
