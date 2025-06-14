@@ -1,5 +1,9 @@
 import { Schema, model, models } from 'mongoose';
 import { IUser } from '@/types';
+import '@/models/Address';
+import '@/models/Product';
+import '@/models/Cart';
+import '@/models/Order';
 
 /**
  * Mongoose schema for the User model.

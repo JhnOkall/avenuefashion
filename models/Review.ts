@@ -1,6 +1,8 @@
 import { Schema, model, models, Model, Types } from 'mongoose';
 import { IReview } from '@/types';
 import Product from './Product';
+import '@/models/User';
+import '@/models/Product';
 
 /**
  * Interface to extend the Mongoose Model type with custom static methods.

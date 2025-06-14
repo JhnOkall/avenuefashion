@@ -1,5 +1,9 @@
 import { Schema, model, models } from 'mongoose';
 import { IAddress } from '@/types';
+import '@/models/User';
+import '@/models/Country';
+import '@/models/County';
+import '@/models/City';
 
 /**
  * Mongoose schema for the Address model.

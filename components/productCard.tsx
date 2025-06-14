@@ -1,8 +1,10 @@
 "use client";
 
+import { useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart, Star } from "lucide-react";
+import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,7 @@ import {
   CardHeader,
 } from "@/components/ui/card";
 import { IProduct } from "@/types";
+import { addToCart } from "@/lib/data";
 
 /**
  * Formats a numeric price into a localized currency string.
@@ -39,32 +42,48 @@ interface ProductCardProps {
 
 /**
  * A reusable card component to display a product's summary information in a grid or list.
- * It includes the product image, name, rating, price, and an "Add to cart" button.
+ * It includes the product image, name, rating, price, and an interactive "Add to cart" button.
  *
  * @param {ProductCardProps} props - The props for the component.
  * @returns {JSX.Element} A product card element.
  */
 const ProductCard = ({ product }: ProductCardProps) => {
+  const [isPending, startTransition] = useTransition();
+
+  /**
+   * Handles adding the product to the shopping cart.
+   * It calls the server action, provides user feedback, and manages loading states.
+   */
+  const handleAddToCart = () => {
+    startTransition(async () => {
+      try {
+        // Add one unit of the product to the cart.
+        await addToCart(product._id.toString(), 1);
+        toast.success("Added to Cart", {
+          description: `${product.name} has been added to your cart.`,
+          action: {
+            label: "View Cart",
+            // Navigate the user to the cart page if they click the action.
+            onClick: () => (window.location.href = "/cart"),
+          },
+        });
+      } catch (error: any) {
+        toast.error("Failed to Add", {
+          description:
+            error.message || "There was an issue adding this item to the cart.",
+        });
+      }
+    });
+  };
+
   return (
     <Card className="group flex h-full flex-col overflow-hidden">
       <CardHeader className="relative p-0 pt-4">
-        {/* Conditionally render a discount badge if a discount is present. */}
         {product.discount && (
           <Badge variant="destructive" className="absolute left-4 top-4 z-10">
             {product.discount}% OFF
           </Badge>
         )}
-        {/* TODO: Implement the quick action tooltips (e.g., Quick View, Add to Favorites) that were previously here. */}
-        <div className="absolute right-2 top-2 z-10 flex gap-1">
-          {/* Example:
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild><Button variant="ghost" size="icon"><Eye/></Button></TooltipTrigger>
-              <TooltipContent><p>Quick View</p></TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          */}
-        </div>
         <div className="relative h-56 w-full">
           <Link href={`/${product.slug}`}>
             <Image
@@ -84,7 +103,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
           </h3>
         </Link>
         <div className="mt-2 flex items-center gap-2">
-          {/* TODO: This star rating logic is duplicated in other components. Extract it into a reusable `StarRating` component. */}
           <div className="flex items-center">
             {Array.from({ length: 5 }).map((_, i) => (
               <Star
@@ -108,7 +126,6 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <Badge variant="outline" className="capitalize">
             {product.condition}
           </Badge>
-          {/* Safely access the brand name, as the `brand` field might be populated or just an ObjectId. */}
           {typeof product.brand === "object" && "name" in product.brand && (
             <Badge variant="secondary">{product.brand.name}</Badge>
           )}
@@ -119,17 +136,19 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <p className="text-xl font-extrabold leading-tight text-foreground">
             {formatPrice(product.price)}
           </p>
-          {/* Display original price if the item is on sale */}
           {product.originalPrice && product.originalPrice > product.price && (
             <p className="text-sm text-muted-foreground line-through">
               {formatPrice(product.originalPrice)}
             </p>
           )}
         </div>
-        {/* TODO: Implement the `onClick` handler for this button to add the product to the cart, likely using a shared `CartContext`. */}
-        <Button size="sm">
+        {/*
+         * This button is now interactive. It's disabled during the API call
+         * and its text changes to provide feedback to the user.
+         */}
+        <Button size="sm" onClick={handleAddToCart} disabled={isPending}>
           <ShoppingCart className="-ms-2 mr-2 h-5 w-5" />
-          Add to cart
+          {isPending ? "Adding..." : "Add to cart"}
         </Button>
       </CardFooter>
     </Card>

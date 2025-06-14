@@ -400,6 +400,59 @@ export const fetchMyFavourites = async (): Promise<IProduct[]> => {
   }
 }
 
+/**
+* Adds a product to the current authenticated user's list of favorites.
+* @param {string} productId - The unique identifier of the product to add.
+* @returns {Promise<void>} A promise that resolves when the operation is successful.
+* @throws Will throw an error if the API request fails.
+*/
+export const addToFavourites = async (productId: string): Promise<void> => {
+    try {
+        const authOptions = await getAuthFetchOptions({
+            method: 'POST',
+            body: JSON.stringify({ productId }),
+        });
+        // This assumes you have a POST endpoint at /api/me/favourites
+        const response = await fetch(`${API_BASE_URL}/me/favourites`, authOptions);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to add to favorites.');
+        }
+    } catch (error) {
+        console.error(`Error in addToFavourites for product ${productId}:`, error);
+        throw error;
+    }
+  };
+
+  /**
+ * Updates the current authenticated user's details.
+ * Can update the user's name and the phone number on their default address.
+ *
+ * @param {object} payload - The data to update.
+ * @param {string} [payload.name] - The new name for the user.
+ * @param {string} [payload.phone] - The new phone number for the user's default address.
+ * @returns {Promise<void>} A promise that resolves when the update is successful.
+ * @throws Will throw an error if the API request fails.
+ */
+export const updateMyDetails = async (payload: { name?: string; phone?: string }): Promise<void> => {
+    try {
+        const authOptions = await getAuthFetchOptions({
+            method: 'PATCH', // PATCH is suitable for partial updates
+            body: JSON.stringify(payload),
+        });
+        // Assumes you have a PATCH handler at /api/me
+        const response = await fetch(`${API_BASE_URL}/me`, authOptions);
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to update your details.');
+        }
+    } catch (error) {
+        console.error("Error in updateMyDetails:", error);
+        throw error;
+    }
+};
+  
+
 // =================================================================
 // CART MUTATION FUNCTIONS
 // =================================================================

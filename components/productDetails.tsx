@@ -1,25 +1,34 @@
 "use client";
 
+import { useState, useTransition } from "react";
 import Image from "next/image";
-import { Star, Heart, ShoppingCart } from "lucide-react";
+import Link from "next/link";
+import { Star, Heart, ShoppingCart, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 import { IProduct } from "@/types";
+import { addToCart, addToFavourites } from "@/lib/data";
 
 /**
- * A reusable, read-only component for displaying a star rating.
- *
- * @param {object} props - The component props.
- * @param {number} props.rating - The numerical rating value to display.
- * @param {string} [props.className] - Optional additional CSS classes for styling.
- * @returns {JSX.Element} A set of star icons representing the rating.
+ * Formats a number into a currency string.
+ * @param {number} price - The price to format.
+ * @returns {string} The formatted price string (e.g., "Ksh 1,234.56").
  */
-
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
     price
   );
 
+// =================================================================
+// SUB-COMPONENTS
+// =================================================================
+
+/**
+ * A reusable, read-only component for displaying a star rating.
+ * @param {object} props - The component props.
+ */
 // TODO: This is a duplicated component. It should be extracted into a shared, reusable component
 // file (e.g., `components/ui/star-rating.tsx`) to avoid code duplication.
 const StarRating = ({
@@ -44,18 +53,101 @@ const StarRating = ({
 );
 
 /**
- * A client component responsible for rendering the main details of a single product,
- * including its image, name, price, rating, and description.
- *
+ * A component for selecting the quantity of a product.
  * @param {object} props - The component props.
- * @param {IProduct} props.product - The product object containing details to display.
- * @returns {JSX.Element} The product detail page section.
+ * @param {number} props.quantity - The current quantity value.
+ * @param {React.Dispatch<React.SetStateAction<number>>} props.setQuantity - The state setter for the quantity.
+ */
+const QuantitySelector = ({
+  quantity,
+  setQuantity,
+}: {
+  quantity: number;
+  setQuantity: React.Dispatch<React.SetStateAction<number>>;
+}) => (
+  <div className="flex items-center">
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-9 w-9"
+      onClick={() => setQuantity((prev) => Math.max(1, prev - 1))}
+      disabled={quantity <= 1}
+      aria-label="Decrease quantity"
+    >
+      <Minus className="h-4 w-4" />
+    </Button>
+    <Input
+      type="text"
+      value={quantity}
+      readOnly
+      className="h-9 w-14 border-0 bg-transparent text-center text-lg font-medium focus-visible:ring-0"
+      aria-label="Current quantity"
+    />
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-9 w-9"
+      onClick={() => setQuantity((prev) => prev + 1)}
+      aria-label="Increase quantity"
+    >
+      <Plus className="h-4 w-4" />
+    </Button>
+  </div>
+);
+
+// =================================================================
+// MAIN COMPONENT
+// =================================================================
+
+/**
+ * A client component responsible for rendering the main details of a single product,
+ * including its image, name, price, rating, and interactive action buttons.
  */
 export const ProductDetails = ({ product }: { product: IProduct }) => {
-  // TODO: Add `onClick` handlers and state management for the "Add to cart" and "Add to favorites" buttons.
-  // This will likely involve using the `useCart` hook and creating a new hook for favorites.
+  const [quantity, setQuantity] = useState(1);
+  const [isPending, startTransition] = useTransition();
 
-  // TODO: Add a `QuantitySelector` component to allow users to choose the quantity before adding to the cart.
+  /**
+   * Handles adding the selected quantity of the product to the shopping cart.
+   */
+  const handleAddToCart = () => {
+    startTransition(async () => {
+      try {
+        await addToCart(product._id.toString(), quantity);
+        toast.success("Added to Cart", {
+          description: `${quantity} x ${product.name} added to your cart.`,
+          action: {
+            label: "View Cart",
+            onClick: () => (window.location.href = "/cart"),
+          },
+        });
+      } catch (error: any) {
+        toast.error("Failed to Add", {
+          description:
+            error.message || "There was an issue adding the item to your cart.",
+        });
+      }
+    });
+  };
+
+  /**
+   * Handles adding the product to the user's favorites list.
+   */
+  const handleAddToFavourites = () => {
+    startTransition(async () => {
+      try {
+        await addToFavourites(product._id.toString());
+        toast.success("Added to Favorites", {
+          description: `${product.name} has been added to your favorites.`,
+        });
+      } catch (error: any) {
+        toast.error("Failed to Add", {
+          description:
+            error.message || "Could not add the item to your favorites.",
+        });
+      }
+    });
+  };
 
   return (
     <section className="bg-background py-8 md:py-16">
@@ -63,7 +155,7 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
         <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-16">
           {/* Product Image Section */}
           <div className="shrink-0">
-            {/* TODO: Enhance this to be an image gallery carousel if `product.images` (array) is implemented instead of a single `product.imageUrl`. */}
+            {/* TODO: Enhance this to be an image gallery carousel if product.images is implemented. */}
             <div className="relative mx-auto h-96 max-w-md lg:max-w-lg">
               <Image
                 className="h-full w-full rounded-lg object-contain"
@@ -90,21 +182,38 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 <p className="text-sm font-medium text-muted-foreground">
                   ({product.rating.toFixed(1)})
                 </p>
-                <p className="text-sm font-medium text-muted-foreground">
-                  {product.numReviews} Reviews
-                </p>
+                <Link href="#reviews" className="hover:underline">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {product.numReviews} Reviews
+                  </p>
+                </Link>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="mt-6 flex flex-col gap-2 sm:mt-8 sm:flex-row sm:gap-4">
-              <Button variant="outline" size="lg">
+            <Separator className="my-6 md:my-8" />
+
+            {/* Action Buttons & Quantity */}
+            <div className="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
+              <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
+              <Button
+                size="lg"
+                onClick={handleAddToCart}
+                disabled={isPending}
+                className="w-full sm:w-auto"
+              >
+                <ShoppingCart className="mr-2 h-5 w-5" />
+                {isPending ? "Adding..." : "Add to cart"}
+              </Button>
+            </div>
+            <div className="mt-4">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleAddToFavourites}
+                disabled={isPending}
+              >
                 <Heart className="mr-2 h-5 w-5" />
                 Add to favorites
-              </Button>
-              <Button size="lg">
-                <ShoppingCart className="mr-2 h-5 w-5" />
-                Add to cart
               </Button>
             </div>
 
@@ -116,7 +225,7 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 <p key={index}>{paragraph}</p>
               ))}
             </div>
-            {/* TODO: Add a section to display product features/specifications if available in the `product` object. */}
+            {/* TODO: Add a section to display product features/specifications if available. */}
           </div>
         </div>
       </div>

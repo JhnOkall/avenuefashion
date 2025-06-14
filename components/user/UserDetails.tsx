@@ -1,9 +1,136 @@
 "use client";
 
+import { useState, useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Pencil, Truck } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Pencil, Truck, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { IAddress } from "@/types";
+import { updateMyDetails } from "@/lib/data";
+
+// =================================================================
+// SUB-COMPONENT: Edit Dialog
+// =================================================================
+
+interface EditAccountDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  user: {
+    name?: string | null;
+  };
+  defaultAddress: IAddress | null;
+}
+
+/**
+ * A dialog component for editing user account details like name and phone number.
+ */
+const EditAccountDialog = ({
+  isOpen,
+  onClose,
+  user,
+  defaultAddress,
+}: EditAccountDialogProps) => {
+  const router = useRouter();
+  const [formData, setFormData] = useState({ name: "", phone: "" });
+  const [isPending, startTransition] = useTransition();
+
+  // Pre-fill the form with current user data when the dialog opens.
+  useEffect(() => {
+    if (isOpen) {
+      setFormData({
+        name: user.name ?? "",
+        phone: defaultAddress?.phone ?? "",
+      });
+    }
+  }, [isOpen, user, defaultAddress]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.id]: e.target.value });
+  };
+
+  const handleSubmit = () => {
+    startTransition(async () => {
+      try {
+        await updateMyDetails(formData);
+        toast.success("Details Updated", {
+          description:
+            "Your account information has been updated successfully.",
+        });
+        onClose();
+        router.refresh(); // Refresh server components to show updated data
+      } catch (error: any) {
+        toast.error("Update Failed", {
+          description:
+            error.message || "There was a problem updating your details.",
+        });
+      }
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Your Details</DialogTitle>
+          <DialogDescription>
+            Make changes to your personal and contact information here. Click
+            save when you're done.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={handleChange}
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Default Phone Number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={handleChange}
+              disabled={isPending || !defaultAddress}
+              placeholder={
+                !defaultAddress
+                  ? "Set a default address to add a phone number"
+                  : ""
+              }
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isPending ? "Saving..." : "Save Changes"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// =================================================================
+// MAIN COMPONENT
+// =================================================================
 
 /**
  * Defines the props required by the UserDetails component.
@@ -25,16 +152,11 @@ interface UserDetailsProps {
 
 /**
  * A helper function to format a structured address object into a single,
- * human-readable string. It safely handles potentially unpopulated fields.
- *
- * @param {IAddress} address - The address object to format.
- * @returns {string} A formatted address string or a fallback message.
+ * human-readable string.
  */
-// TODO: Relocate this helper to a shared `utils/formatters.ts` file to ensure consistency and reusability across the application.
+// TODO: Relocate this helper to a shared `utils/formatters.ts`.
 const formatAddress = (address: IAddress | null): string => {
   if (!address) return "No default address set.";
-
-  // Safely access the name property only if the field is a populated object.
   const cityName =
     typeof address.city === "object" && "name" in address.city
       ? address.city.name
@@ -47,8 +169,6 @@ const formatAddress = (address: IAddress | null): string => {
     typeof address.country === "object" && "name" in address.country
       ? address.country.name
       : "";
-
-  // Filter out any empty parts and join them with a comma.
   return [address.streetAddress, cityName, countyName, countryName]
     .filter(Boolean)
     .join(", ");
@@ -56,11 +176,11 @@ const formatAddress = (address: IAddress | null): string => {
 
 /**
  * A client component that displays a summary of the user's personal details
- * and their default contact/shipping information on their profile page.
- *
- * @param {UserDetailsProps} props - The props containing user and address data.
+ * and provides an entry point to edit them.
  */
 export const UserDetails = ({ user, defaultAddress }: UserDetailsProps) => {
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+
   return (
     <div className="py-4 md:py-8">
       <div className="mb-4 grid gap-4 sm:grid-cols-2 sm:gap-8 lg:gap-16">
@@ -107,11 +227,20 @@ export const UserDetails = ({ user, defaultAddress }: UserDetailsProps) => {
           </dl>
         </div>
       </div>
-      {/* TODO: Implement the "Edit Your Data" functionality. This button should trigger a dialog or modal (`EditAccountDialog`) allowing the user to update their name, phone, or other personal details. */}
-      <Button disabled>
+
+      {/* Edit button now triggers the dialog */}
+      <Button onClick={() => setIsDialogOpen(true)}>
         <Pencil className="mr-1.5 h-4 w-4" />
         Edit Your Data
       </Button>
+
+      {/* The Dialog component is rendered here but controlled by state */}
+      <EditAccountDialog
+        isOpen={isDialogOpen}
+        onClose={() => setIsDialogOpen(false)}
+        user={user}
+        defaultAddress={defaultAddress}
+      />
     </div>
   );
 };

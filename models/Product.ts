@@ -1,5 +1,7 @@
 import { Schema, model, models } from 'mongoose';
 import { IProduct } from '@/types';
+import '@/models/Review';
+import '@/models/Brand';
 
 /**
  * Mongoose schema for the Product model.

@@ -24,14 +24,12 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { ICart, ICartItem, IProduct } from "@/types";
-import { removeCartItem, updateCartItem } from "@/lib/data";
+// FIX: Import the new addToFavourites function
+import { removeCartItem, updateCartItem, addToFavourites } from "@/lib/data";
 
 /**
  * Formats a number into a currency string.
- * @param {number} price - The price to format.
- * @returns {string} The formatted price string (e.g., "Ksh 1,234.56").
  */
-// TODO: Move this formatter to a shared `utils/formatters.ts` file to promote reusability.
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
     price
@@ -43,9 +41,6 @@ const formatPrice = (price: number) =>
 
 /**
  * Renders a quantity input control with buttons to increment and decrement.
- * @param {object} props - The component props.
- * @param {ICartItem} props.item - The cart item whose quantity is being controlled.
- * @param {(id: string, qty: number) => void} props.onUpdate - Callback function to handle quantity updates.
  */
 const QuantityInput = ({
   item,
@@ -54,6 +49,7 @@ const QuantityInput = ({
   item: ICartItem;
   onUpdate: (id: string, qty: number) => void;
 }) => {
+  // ... (component code remains the same)
   return (
     <div className="flex items-center">
       <Button
@@ -87,22 +83,18 @@ const QuantityInput = ({
 
 /**
  * Renders a card displaying details for a single item in the shopping cart.
- * @param {object} props - The component props.
- * @param {ICartItem} props.item - The cart item to display.
- * @param {(id: string, qty: number) => void} props.onUpdate - Callback for quantity changes.
- * @param {(id: string) => void} props.onRemove - Callback for removing the item.
  */
 const CartItemCard = ({
   item,
   onUpdate,
   onRemove,
+  onAddToFavourites, // FIX: Add new prop for the handler
 }: {
   item: ICartItem;
   onUpdate: (id: string, qty: number) => void;
   onRemove: (id: string) => void;
+  onAddToFavourites: (id: string) => void; // FIX: Add new prop type
 }) => {
-  // The product field can be either a populated object or just an ObjectId string.
-  // This check safely accesses the slug only when the product is fully populated.
   const productSlug =
     typeof item.product === "object" && "slug" in item.product
       ? (item.product as IProduct).slug
@@ -133,11 +125,12 @@ const CartItemCard = ({
                 {item.name}
               </Link>
               <div className="flex items-center gap-4">
-                {/* TODO: Implement 'Add to Favorites' functionality. This will likely involve a mutation to update the user's favorites list. */}
+                {/* FIX: Implement 'Add to Favorites' functionality */}
                 <Button
                   variant="ghost"
                   size="sm"
                   className="p-0 text-sm font-medium text-muted-foreground hover:text-foreground"
+                  onClick={() => onAddToFavourites(item.product._id.toString())}
                 >
                   <Heart className="mr-1.5 h-5 w-5" /> Add to Favorites
                 </Button>
@@ -167,20 +160,17 @@ const CartItemCard = ({
 };
 
 /**
- * Renders a card displaying the order summary, including subtotal, tax, and total.
- * @param {object} props - The component props.
- * @param {ICart | null} props.cart - The current cart object.
+ * Renders a card displaying the order summary.
  */
 const OrderSummaryCard = ({ cart }: { cart: ICart | null }) => {
+  // ... (component code remains the same)
   const router = useRouter();
   const subtotal =
     cart?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) ?? 0;
-  // TODO: Replace this hardcoded tax calculation with a value from the API or a central configuration.
   const tax = subtotal * 0.16; // 16% VAT
   const total = subtotal + tax;
 
   const handleCheckout = () => {
-    // TODO: Implement navigation to the checkout page.
     router.push("/checkout");
   };
 
@@ -234,25 +224,18 @@ interface ShoppingCartClientProps {
 
 /**
  * A client component that renders the main shopping cart interface.
- * It handles user interactions for updating quantities and removing items.
- *
- * @param {ShoppingCartClientProps} props - The component props.
  */
-// TODO: Refactor this component to use the `useCart` hook from `CartContext`.
-// This would eliminate the need for the `initialCart` prop and `router.refresh()`,
-// enabling a smoother user experience with optimistic updates managed by the context.
 export const ShoppingCartClient = ({
   initialCart,
-}: // recommendedProducts,
-ShoppingCartClientProps) => {
+}: ShoppingCartClientProps) => {
   const router = useRouter();
-  // `useTransition` provides a pending state to give visual feedback during server actions.
   const [isPending, startTransition] = useTransition();
 
   /**
-   * Handles updating the quantity of a cart item or removing it if quantity is zero.
+   * Handles updating the quantity of a cart item.
    */
   const handleUpdate = (productId: string, quantity: number) => {
+    // ... (function code remains the same)
     startTransition(async () => {
       try {
         if (quantity <= 0) {
@@ -261,7 +244,6 @@ ShoppingCartClientProps) => {
         } else {
           await updateCartItem(productId, quantity);
         }
-        // Refreshes the server components on the page to reflect the updated cart state.
         router.refresh();
       } catch (error: any) {
         toast.error("Error updating cart", {
@@ -275,6 +257,7 @@ ShoppingCartClientProps) => {
    * Handles removing a cart item completely.
    */
   const handleRemove = (productId: string) => {
+    // ... (function code remains the same)
     startTransition(async () => {
       try {
         await removeCartItem(productId);
@@ -283,6 +266,28 @@ ShoppingCartClientProps) => {
       } catch (error: any) {
         toast.error("Error removing item", {
           description: error.message || "Could not remove the item from cart.",
+        });
+      }
+    });
+  };
+
+  /**
+   * FIX: Handles adding a product to the user's favorites list.
+   */
+  const handleAddToFavourites = (productId: string) => {
+    startTransition(async () => {
+      try {
+        await addToFavourites(productId);
+        toast.success("Added to Favorites", {
+          description:
+            "The item has been successfully added to your favorites.",
+        });
+        // Note: No router.refresh() is needed here unless you want to
+        // visually change the button state (e.g., to a filled heart),
+        // which would require more complex state management.
+      } catch (error: any) {
+        toast.error("Failed to Add", {
+          description: error.message || "Could not add the item to favorites.",
         });
       }
     });
@@ -306,6 +311,7 @@ ShoppingCartClientProps) => {
                     item={item}
                     onUpdate={handleUpdate}
                     onRemove={handleRemove}
+                    onAddToFavourites={handleAddToFavourites} // FIX: Pass the new handler
                   />
                 ))}
               </div>
@@ -327,11 +333,9 @@ ShoppingCartClientProps) => {
               style={{ opacity: isPending ? 0.7 : 1 }}
             >
               <OrderSummaryCard cart={initialCart} />
-              {/* TODO: Implement a `VoucherCard` component for applying discount codes. */}
             </div>
           </div>
         </div>
-        {/* TODO: Implement the "Recommended Products" section using the `recommendedProducts` prop. */}
       </div>
     </section>
   );

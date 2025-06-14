@@ -1,5 +1,7 @@
 import { Schema, model, models } from 'mongoose';
 import { ICart, ICartItem } from '@/types';
+import '@/models/User'
+import '@/models/Product'
 
 /**
  * Mongoose subdocument schema for an item within a shopping cart.

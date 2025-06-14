@@ -1,6 +1,9 @@
 import { Schema, model, models } from 'mongoose';
 import { IOrder, IOrderItem, IOrderTimelineEvent } from '@/types';
 import { customAlphabet } from 'nanoid';
+import '@/models/Product';
+import '@/models/User';
+import '@/models/Voucher';
 
 /**
  * Generates a unique, user-friendly, 10-digit numeric order ID.

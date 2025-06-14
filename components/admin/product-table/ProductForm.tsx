@@ -47,6 +47,8 @@ interface ProductFormProps {
 const initialFormState = {
   name: "",
   price: 0,
+  originalPrice: 0, // ADDED
+  discount: 0, // ADDED
   description: [""],
   brand: "",
   imageUrl: "/placeholder.svg",
@@ -55,13 +57,9 @@ const initialFormState = {
 
 /**
  * A comprehensive form component, rendered within a dialog, for both creating
- * and editing products in the admin dashboard. It manages its own state, fetches
- * necessary data like brands, and handles the submission process.
- *
- * @param {ProductFormProps} props - The props for configuring the form.
+ * and editing products in the admin dashboard.
  */
-// TODO: Replace the simple `imageUrl` input with a robust file upload component
-// that integrates with a cloud storage service (e.g., Cloudinary, AWS S3).
+// TODO: Replace the simple `imageUrl` input with a robust file upload component.
 // TODO: Implement a more advanced form validation solution (e.g., `react-hook-form` and `zod`).
 export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
   const router = useRouter();
@@ -69,14 +67,12 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
   const [brands, setBrands] = useState<IBrand[]>([]);
   const [isSubmitting, startTransition] = useTransition();
 
-  // State for the new brand creation dialog
   const [isBrandDialogOpen, setIsBrandDialogOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState("");
   const [isCreatingBrand, startBrandCreationTransition] = useTransition();
 
   /**
    * Effect to fetch the list of available brands when the component mounts.
-   * This populates the "Brand" select dropdown.
    */
   useEffect(() => {
     fetchBrands().then(setBrands);
@@ -84,8 +80,6 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
 
   /**
    * Effect to synchronize the form's state with the `product` prop.
-   * When the dialog opens or the `product` to be edited changes, this populates
-   * the form fields for editing or resets them for creation.
    */
   useEffect(() => {
     if (product) {
@@ -93,8 +87,9 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
       setFormData({
         name: product.name,
         price: product.price,
+        originalPrice: product.originalPrice ?? 0, // ADDED: Populate originalPrice, defaulting to 0
+        discount: product.discount ?? 0, // ADDED: Populate discount, defaulting to 0
         description: product.description,
-        // Safely access the brand ID, whether it's populated or not.
         brand:
           typeof product.brand === "string"
             ? product.brand
@@ -115,7 +110,6 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
-    // Special handling for the description to maintain an array of strings.
     if (id === "description") {
       setFormData((prev) => ({ ...prev, description: value.split("\n") }));
     } else {
@@ -131,8 +125,7 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
   };
 
   /**
-   * Handles the form submission logic. It prepares the data for the API,
-   * calls the appropriate create or update function, and provides user feedback.
+   * Handles the form submission logic.
    */
   const handleSubmit = async () => {
     startTransition(async () => {
@@ -140,7 +133,8 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
         const submissionData = {
           ...formData,
           price: Number(formData.price),
-          // Type assertion to match the expected interface
+          originalPrice: Number(formData.originalPrice) || undefined, // ADDED: Convert to number, or undefined if 0
+          discount: Number(formData.discount) || undefined, // ADDED: Convert to number, or undefined if 0
           brand: formData.brand as any,
         };
 
@@ -168,6 +162,7 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
    * Handles the creation of a new brand.
    */
   const handleCreateBrand = async () => {
+    // ... (This function remains unchanged)
     if (!newBrandName.trim()) {
       toast.error("Brand name cannot be empty.");
       return;
@@ -178,10 +173,8 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
         toast.success("Brand Created", {
           description: `Brand "${newBrand.name}" was successfully created.`,
         });
-        // Add new brand to state and select it automatically
         setBrands((prev) => [...prev, newBrand]);
         setFormData((prev) => ({ ...prev, brand: newBrand._id.toString() }));
-        // Close the dialog and reset the input
         setIsBrandDialogOpen(false);
         setNewBrandName("");
       } catch (error: any) {
@@ -204,16 +197,44 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
               <Label htmlFor="name">Name</Label>
               <Input id="name" value={formData.name} onChange={handleChange} />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="price">Price</Label>
-              <Input
-                id="price"
-                type="number"
-                value={formData.price}
-                onChange={handleChange}
-                min="0"
-              />
+
+            {/* --- ADDED PRICE & DISCOUNT FIELDS --- */}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="price">Sale Price</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  value={formData.price}
+                  onChange={handleChange}
+                  min="0"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="originalPrice">Original Price (Optional)</Label>
+                <Input
+                  id="originalPrice"
+                  type="number"
+                  value={formData.originalPrice}
+                  onChange={handleChange}
+                  min="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="discount">Discount % (Optional)</Label>
+                <Input
+                  id="discount"
+                  type="number"
+                  value={formData.discount}
+                  onChange={handleChange}
+                  min="0"
+                  max="100"
+                />
+              </div>
             </div>
+            {/* --- END OF ADDED FIELDS --- */}
+
             <div className="space-y-2">
               <Label htmlFor="brand">Brand</Label>
               <div className="flex items-center gap-2">
@@ -293,6 +314,7 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
 
       {/* Dialog for creating a new brand */}
       <Dialog open={isBrandDialogOpen} onOpenChange={setIsBrandDialogOpen}>
+        {/* ... (This dialog remains unchanged) */}
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Brand</DialogTitle>
