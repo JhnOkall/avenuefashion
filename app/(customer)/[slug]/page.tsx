@@ -55,9 +55,10 @@ const ProductPageSkeleton = () => (
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const product = await fetchProductBySlug(params.slug);
+  const resolvedParams = await params;
+  const product = await fetchProductBySlug(resolvedParams.slug);
 
   if (!product) {
     return {
@@ -91,18 +92,19 @@ export async function generateMetadata({
 export default async function ProductPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
   /**
    * Fetches the main product data and the initial page of reviews concurrently.
    * `Promise.all` is used for efficiency, allowing both network requests to happen in parallel.
    */
   // TODO: Add a try-catch block to gracefully handle potential API errors during data fetching.
+  const resolvedParams = await params;
   const [product, initialReviewsData] = await Promise.all([
-    fetchProductBySlug(params.slug),
+    fetchProductBySlug(resolvedParams.slug),
     // We optimistically fetch reviews assuming the product exists. The `notFound()` check below handles failures.
     // This is generally safe but relies on `fetchReviewsByProduct` not throwing an error for a non-existent ID.
-    fetchReviewsByProduct(params.slug, { page: 1, limit: 3 }),
+    fetchReviewsByProduct(resolvedParams.slug, { page: 1, limit: 3 }),
   ]);
 
   /**
