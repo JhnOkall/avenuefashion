@@ -16,7 +16,7 @@ import mongoose from 'mongoose';
  * @param {string} context.params.orderId - The user-facing ID of the order to fetch.
  * @returns {Promise<NextResponse>} A JSON response containing the order details or an error message.
  */
-export async function GET(req: Request, { params }: { params: { orderId: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   /**
    * Fetches the current user's session. If no session exists, the user is unauthorized.
    */
@@ -25,10 +25,13 @@ export async function GET(req: Request, { params }: { params: { orderId: string 
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
+
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
-    const { orderId } = params;
+    const { orderId } = resolvedParams;
 
     // Validates the presence of the required orderId parameter.
     if (!orderId) {
@@ -69,7 +72,7 @@ export async function GET(req: Request, { params }: { params: { orderId: string 
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`GET /api/orders/${params.orderId} Error:`, error);
+    console.error(`GET /api/orders/${resolvedParams.orderId} Error:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

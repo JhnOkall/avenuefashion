@@ -14,7 +14,7 @@ import Order from '@/models/Order';
  * @param {string} context.params.orderId - The user-facing identifier of the order to update (e.g., "ORD-12345").
  * @returns {Promise<NextResponse>} A JSON response indicating success or failure.
  */
-export async function PATCH(req: Request, { params }: { params: { orderId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   /**
    * Performs an authentication and authorization check.
    */
@@ -22,6 +22,9 @@ export async function PATCH(req: Request, { params }: { params: { orderId: strin
   if (session?.user?.role !== 'admin') {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
+
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
   
   try {
     // Establishes a connection to the MongoDB database.
@@ -32,7 +35,7 @@ export async function PATCH(req: Request, { params }: { params: { orderId: strin
     const { status, timelineEvent } = await req.json();
 
     // Finds the order document using its custom, user-facing `orderId` field.
-    const order = await Order.findOne({ orderId: params.orderId });
+    const order = await Order.findOne({ orderId: resolvedParams.orderId });
 
     // If no order is found with the provided ID, return a 404 Not Found response.
     if (!order) {
@@ -57,7 +60,7 @@ export async function PATCH(req: Request, { params }: { params: { orderId: strin
     return NextResponse.json({ message: 'Order updated successfully', data: order }, { status: 200 });
   } catch (error: any) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error updating order ${params.orderId}:`, error);
+    console.error(`Error updating order ${resolvedParams.orderId}:`, error);
     return NextResponse.json({ message: 'Error updating order', error: error.message }, { status: 500 });
   }
 }
