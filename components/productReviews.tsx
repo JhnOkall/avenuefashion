@@ -31,11 +31,6 @@ import {
 
 /**
  * Renders a star rating display. Can be interactive or read-only.
- *
- * @param {object} props - The component props.
- * @param {number} props.rating - The current rating value (e.g., 3 out of 5).
- * @param {(r: number) => void} [props.setRating] - Optional callback to make the component interactive. If provided, clicking a star will call this function with the new rating.
- * @param {string} [props.className] - Optional class names for the star icons.
  */
 const StarRating = ({
   rating,
@@ -68,21 +63,20 @@ const StarRating = ({
  * A form component for submitting a new product review.
  *
  * @param {object} props - The component props.
- * @param {string} props.productId - The ID of the product being reviewed.
+ * @param {string} props.productSlug - The slug of the product being reviewed. // CHANGED: from productId to productSlug
  * @param {() => void} props.onReviewSubmit - Callback function executed upon successful submission.
  */
 // TODO: Implement more robust form handling and validation using a library like `react-hook-form` and `zod`.
 const ReviewForm = ({
-  productId,
+  productSlug, // CHANGED
   onReviewSubmit,
 }: {
-  productId: string;
+  productSlug: string; // CHANGED
   onReviewSubmit: () => void;
 }) => {
   const [rating, setRating] = useState(0);
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
-  // `useTransition` provides a pending state for non-blocking UI updates during submission.
   const [isSubmitting, startTransition] = useTransition();
 
   /**
@@ -94,9 +88,10 @@ const ReviewForm = ({
         if (rating === 0 || !title.trim() || !text.trim()) {
           throw new Error("Please fill all fields and provide a rating.");
         }
-        await submitReview(productId, { rating, title, text });
+        // FIX: Pass the productSlug to the submitReview function
+        await submitReview(productSlug, { rating, title, text });
         toast.success("Success!", {
-          description: "Your review has been submitted for approval.",
+          description: "Your review has been submitted.",
         });
         onReviewSubmit();
       } catch (error: any) {
@@ -131,7 +126,6 @@ const ReviewForm = ({
           placeholder="Describe your experience..."
         />
       </div>
-      {/* TODO: Add a file input component here for review image uploads. */}
       <DialogFooter>
         <Button onClick={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? "Submitting..." : "Submit Review"}
@@ -153,24 +147,18 @@ interface ProductReviewsClientProps {
 /**
  * A client component that displays product reviews, handles review submission,
  * and manages "load more" functionality.
- *
- * @param {ProductReviewsClientProps} props - The component props.
  */
 export const ProductReviewsClient = ({
   product,
   initialReviewsData,
 }: ProductReviewsClientProps) => {
   const router = useRouter();
-  // State for the list of reviews displayed on the client.
   const [reviews, setReviews] = useState(initialReviewsData.data);
-  // State for managing the pagination of loaded reviews.
   const [pagination, setPagination] = useState({
     currentPage: initialReviewsData.currentPage,
     totalPages: initialReviewsData.totalPages,
   });
-  // State for the review submission dialog.
   const [isReviewDialogOpen, setReviewDialogOpen] = useState(false);
-  // Transition state for loading more reviews to prevent UI blocking.
   const [isLoadingMore, startLoadingTransition] = useTransition();
 
   /**
@@ -181,13 +169,11 @@ export const ProductReviewsClient = ({
     startLoadingTransition(async () => {
       try {
         const nextPage = pagination.currentPage + 1;
-        const newReviewsData = await fetchReviewsByProduct(
-          product._id.toString(),
-          {
-            page: nextPage,
-            limit: 5, // A common limit for loading more items.
-          }
-        );
+        // FIX: Pass the product.slug instead of product._id
+        const newReviewsData = await fetchReviewsByProduct(product.slug, {
+          page: nextPage,
+          limit: 5,
+        });
         setReviews((prev) => [...prev, ...newReviewsData.data]);
         setPagination({
           currentPage: newReviewsData.currentPage,
@@ -232,17 +218,16 @@ export const ProductReviewsClient = ({
                   <DialogTitle>Add a Review for {product.name}</DialogTitle>
                 </DialogHeader>
                 <ReviewForm
-                  productId={product._id.toString()}
+                  // FIX: Pass the product.slug to the form component
+                  productSlug={product.slug}
                   onReviewSubmit={() => {
                     setReviewDialogOpen(false);
-                    // Refresh server-side props to update review counts and average rating.
                     router.refresh();
                   }}
                 />
               </DialogContent>
             </Dialog>
           </div>
-          {/* TODO: Implement a detailed rating breakdown component. This would require an API endpoint that returns counts for each star rating (e.g., { 5: 120, 4: 50, ... }). */}
           <div className="mt-6 min-w-0 flex-1 space-y-3 sm:mt-0">
             <p className="text-muted-foreground">
               A detailed rating breakdown will be available soon.
@@ -251,7 +236,6 @@ export const ProductReviewsClient = ({
         </div>
         <div className="divide-y divide-border">
           {reviews.map((review) => {
-            // Safely access user details, as the `user` field might not be populated.
             const user = typeof review.user === "object" ? review.user : null;
             return (
               <article
@@ -294,7 +278,6 @@ export const ProductReviewsClient = ({
                   </div>
                   <StarRating rating={review.rating} />
                   {review.isVerified && (
-                    // TODO: Implement the backend logic to verify if the user purchased this product before setting this flag.
                     <Badge variant="secondary" className="mt-2">
                       <CheckCircle className="mr-1.5 h-4 w-4 text-green-600" />
                       Verified Purchase
