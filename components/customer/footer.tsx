@@ -1,4 +1,4 @@
-"use-client";
+"use client";
 
 import Link from "next/link";
 import { Package2, Instagram, Mail } from "lucide-react";
