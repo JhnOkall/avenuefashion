@@ -145,14 +145,18 @@ const ProductSchema = new Schema<IProduct>({
 });
 
 /**
- * Pre-save middleware to automatically generate a URL-friendly slug from the
- * product name before saving a new or modified document.
+ * Pre-validate middleware to automatically generate a URL-friendly slug from the
+ * product name. This hook runs *before* Mongoose's built-in validation, ensuring
+ * the slug exists when the `required` check is performed.
  */
-ProductSchema.pre('save', function(next) {
-  if (this.isModified('name')) {
+ProductSchema.pre('validate', function(next) {
+  // We check if the document is new or if the name has been changed.
+  if (this.isNew || this.isModified('name')) {
     this.slug = this.name
       .toLowerCase()
-      .replace(/ /g, '-') // Replace spaces with hyphens
+      .trim()
+      .replace(/&/g, '-and-') // Replace & with 'and'
+      .replace(/ /g, '-')     // Replace spaces with hyphens
       .replace(/[^\w-]+/g, ''); // Remove all non-word chars except hyphens
   }
   next();

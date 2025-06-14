@@ -787,7 +787,6 @@ export const createBrand = async (brandData: Partial<IBrand>): Promise<IBrand> =
             method: 'POST',
             body: JSON.stringify(brandData)
         });
-        // Assuming the endpoint for brand creation is /api/admin/brands
         const response = await fetch(`${API_BASE_URL}/admin/brands`, authOptions);
         const result = await response.json();
         if (!response.ok) {
