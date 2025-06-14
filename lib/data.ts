@@ -1,5 +1,4 @@
 import { IProduct, IBrand, IOrder, IAddress, IReview, ICart, ICity, ICounty, ICountry, IUser, IVoucher } from "@/types";
-import { cookies } from "next/headers";
 
 /**
  * @file Server-side API data fetching utilities for the Next.js application.
@@ -21,17 +20,24 @@ const API_BASE_URL = `${process.env.NEXT_PUBLIC_APP_URL}/api`;
  * @param options - The original `fetch` options (e.g., method, body, cache).
  * @returns A new `RequestInit` options object with the authentication cookie header merged.
  */
-const getAuthFetchOptions = (options: RequestInit = {}): RequestInit => {
-    // Retrieve all cookies from the incoming server request.
-    const cookieHeader = cookies().toString();
-    
+const getAuthFetchOptions = async (options: RequestInit = {}): Promise<RequestInit> => {
     let headers: Record<string, string> = {
         ...options.headers as Record<string, string>,
     };
     
-    // Forward the cookies to the API route if they exist.
-    if (cookieHeader) {
-        headers = { ...headers, Cookie: cookieHeader };
+    // Only import and use cookies on the server side
+    if (typeof window === 'undefined') {
+        try {
+            const { cookies } = await import('next/headers');
+            const cookieHeader = cookies().toString();
+            
+            // Forward the cookies to the API route if they exist.
+            if (cookieHeader) {
+                headers = { ...headers, Cookie: cookieHeader };
+            }
+        } catch (error) {
+            console.warn('Failed to get cookies:', error);
+        }
     }
 
     // Automatically set the Content-Type header for requests with a body.
@@ -282,7 +288,8 @@ export const fetchProductSuggestions = async (searchQuery: string): Promise<IPro
  */
 export const fetchOrderById = async (orderId: string): Promise<IOrder | null> => {
   try {
-    const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, getAuthFetchOptions());
+    const authOptions = await getAuthFetchOptions();
+    const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, authOptions);
 
     if (response.status === 404) {
       console.warn(`Order with ID ${orderId} not found.`);
@@ -316,7 +323,8 @@ export const fetchMyOrders = async (params: { limit?: number; page?: number; sta
       queryParams.append('status', params.status);
     }
 
-    const response = await fetch(`${API_BASE_URL}/orders?${queryParams.toString()}`, getAuthFetchOptions());
+    const authOptions = await getAuthFetchOptions();
+    const response = await fetch(`${API_BASE_URL}/orders?${queryParams.toString()}`, authOptions);
     if (!response.ok) {
       throw new Error(`Failed to fetch user orders: ${response.statusText}`);
     }
@@ -334,7 +342,8 @@ export const fetchMyOrders = async (params: { limit?: number; page?: number; sta
  */
 export const fetchMyAddresses = async (): Promise<IAddress[]> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/me/addresses`, getAuthFetchOptions());
+        const authOptions = await getAuthFetchOptions();
+        const response = await fetch(`${API_BASE_URL}/me/addresses`, authOptions);
         if (!response.ok) {
             throw new Error(`Failed to fetch user addresses: ${response.statusText}`);
         }
@@ -359,7 +368,8 @@ export const fetchMyReviews = async (params: { limit?: number; page?: number; ra
         if (params.page) queryParams.append('page', params.page.toString());
         if (params.rating) queryParams.append('rating', params.rating.toString());
   
-        const response = await fetch(`${API_BASE_URL}/me/reviews?${queryParams.toString()}`, getAuthFetchOptions());
+        const authOptions = await getAuthFetchOptions();
+        const response = await fetch(`${API_BASE_URL}/me/reviews?${queryParams.toString()}`, authOptions);
         if (!response.ok) {
             throw new Error(`Failed to fetch user reviews: ${response.statusText}`);
         }
@@ -377,7 +387,8 @@ export const fetchMyReviews = async (params: { limit?: number; page?: number; ra
 */
 export const fetchMyFavourites = async (): Promise<IProduct[]> => {
   try {
-      const response = await fetch(`${API_BASE_URL}/me/favourites`, getAuthFetchOptions());
+      const authOptions = await getAuthFetchOptions();
+      const response = await fetch(`${API_BASE_URL}/me/favourites`, authOptions);
       if (!response.ok) {
           throw new Error(`Failed to fetch user favourites: ${response.statusText}`);
       }
@@ -400,9 +411,10 @@ export const fetchMyFavourites = async (): Promise<IProduct[]> => {
 */
 export const getCart = async (): Promise<ICart | null> => {
   try {
-      const response = await fetch(`${API_BASE_URL}/cart`, getAuthFetchOptions({
+      const authOptions = await getAuthFetchOptions({
           cache: 'no-store',
-      }));
+      });
+      const response = await fetch(`${API_BASE_URL}/cart`, authOptions);
       if (response.status === 404) return null;
       if (!response.ok) {
           throw new Error(`Failed to fetch cart: ${response.statusText}`);
@@ -424,10 +436,11 @@ export const getCart = async (): Promise<ICart | null> => {
 */
 export const addToCart = async (productId: string, quantity: number): Promise<ICart> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/cart`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'POST',
             body: JSON.stringify({ productId, quantity }),
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/cart`, authOptions);
         const result = await response.json();
         if (!response.ok) {
             throw new Error(result.message || 'Failed to add item to cart.');
@@ -448,10 +461,11 @@ export const addToCart = async (productId: string, quantity: number): Promise<IC
 */
 export const updateCartItem = async (productId: string, quantity: number): Promise<ICart> => {
   try {
-      const response = await fetch(`${API_BASE_URL}/cart`, getAuthFetchOptions({
+      const authOptions = await getAuthFetchOptions({
           method: 'PATCH',
           body: JSON.stringify({ productId, quantity }),
-      }));
+      });
+      const response = await fetch(`${API_BASE_URL}/cart`, authOptions);
       const result = await response.json();
       if (!response.ok) {
           throw new Error(result.message || 'Failed to update cart item.');
@@ -471,10 +485,11 @@ export const updateCartItem = async (productId: string, quantity: number): Promi
 */
 export const removeCartItem = async (productId: string): Promise<ICart> => {
   try {
-      const response = await fetch(`${API_BASE_URL}/cart`, getAuthFetchOptions({
+      const authOptions = await getAuthFetchOptions({
           method: 'DELETE',
           body: JSON.stringify({ productId }),
-      }));
+      });
+      const response = await fetch(`${API_BASE_URL}/cart`, authOptions);
        const result = await response.json();
        if (!response.ok) {
           throw new Error(result.message || 'Failed to remove cart item.');
@@ -499,10 +514,11 @@ export const removeCartItem = async (productId: string): Promise<ICart> => {
  */
 export const submitReview = async (productId: string, data: { rating: number, title: string, text: string }): Promise<IReview> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/products/${productId}/reviews`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'POST',
             body: JSON.stringify(data),
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/products/${productId}/reviews`, authOptions);
         const result = await response.json();
         if (!response.ok) {
             throw new Error(result.message || 'Failed to submit review.');
@@ -523,10 +539,11 @@ export const submitReview = async (productId: string, data: { rating: number, ti
  */
 export const updateReview = async (reviewId: string, data: { title: string; text: string; rating: number }): Promise<IReview> => {
   try {
-      const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}`, getAuthFetchOptions({
+      const authOptions = await getAuthFetchOptions({
           method: 'PATCH',
           body: JSON.stringify(data),
-      }));
+      });
+      const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}`, authOptions);
       const result = await response.json();
       if (!response.ok) {
           throw new Error(result.message || 'Failed to update review.');
@@ -546,9 +563,10 @@ export const updateReview = async (reviewId: string, data: { title: string; text
 */
 export const deleteReview = async (reviewId: string): Promise<void> => {
   try {
-      const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}`, getAuthFetchOptions({
+      const authOptions = await getAuthFetchOptions({
           method: 'DELETE',
-      }));
+      });
+      const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}`, authOptions);
       if (!response.ok) {
           const errorData = await response.json();
           throw new Error(errorData.message || 'Failed to delete review.');
@@ -571,10 +589,11 @@ export const placeOrder = async (payload: {
     cityId: string;
 }): Promise<IOrder> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/orders`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'POST',
             body: JSON.stringify(payload)
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/orders`, authOptions);
         const result = await response.json();
         if (!response.ok) {
             throw new Error(result.message || 'Failed to place order.');
@@ -668,7 +687,8 @@ export interface AdminAnalyticsData {
 */
 export const fetchAdminAnalytics = async (): Promise<AdminAnalyticsData> => {
   try {
-      const response = await fetch(`${API_BASE_URL}/admin/analytics`, getAuthFetchOptions({ cache: 'no-store' }));
+      const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
+      const response = await fetch(`${API_BASE_URL}/admin/analytics`, authOptions);
       if (!response.ok) {
           throw new Error(`Failed to fetch admin analytics: ${response.statusText}`);
       }
@@ -709,7 +729,8 @@ export const fetchAdminProducts = async (params: { page?: number, limit?: number
         if (params.limit) queryParams.append('limit', params.limit.toString());
         if (params.searchQuery) queryParams.append('searchQuery', params.searchQuery);
         
-        const response = await fetch(`${API_BASE_URL}/admin/products?${queryParams.toString()}`, getAuthFetchOptions({ cache: 'no-store' }));
+        const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
+        const response = await fetch(`${API_BASE_URL}/admin/products?${queryParams.toString()}`, authOptions);
         if (!response.ok) throw new Error('Failed to fetch admin products.');
         return await response.json();
     } catch (error) { console.error(error); throw error; }
@@ -723,10 +744,11 @@ export const fetchAdminProducts = async (params: { page?: number, limit?: number
  */
 export const createProduct = async (productData: Partial<IProduct>): Promise<IProduct> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/admin/products`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'POST',
             body: JSON.stringify(productData)
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/admin/products`, authOptions);
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'Failed to create product.');
         return result.data;
@@ -742,10 +764,11 @@ export const createProduct = async (productData: Partial<IProduct>): Promise<IPr
  */
 export const updateProduct = async (productId: string, productData: Partial<IProduct>): Promise<IProduct> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/admin/products/${productId}`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'PATCH',
             body: JSON.stringify(productData)
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/admin/products/${productId}`, authOptions);
         const result = await response.json();
         if (!response.ok) throw new Error(result.message || 'Failed to update product.');
         return result.data;
@@ -765,7 +788,8 @@ export const fetchAdminOrders = async (params: { page?: number, limit?: number, 
         if (params.limit) queryParams.append('limit', params.limit.toString());
         if (params.status && params.status !== 'all') queryParams.append('status', params.status);
         
-        const response = await fetch(`${API_BASE_URL}/admin/orders?${queryParams.toString()}`, getAuthFetchOptions({ cache: 'no-store' }));
+        const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
+        const response = await fetch(`${API_BASE_URL}/admin/orders?${queryParams.toString()}`, authOptions);
         if (!response.ok) throw new Error('Failed to fetch admin orders.');
         return await response.json();
     } catch (error) { console.error(error); throw error; }
@@ -780,14 +804,20 @@ export const fetchAdminOrders = async (params: { page?: number, limit?: number, 
  */
 export const updateAdminOrder = async (orderId: string, payload: { status?: IOrder['status'], timelineEvent?: any }): Promise<IOrder> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'PATCH',
             body: JSON.stringify(payload)
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}`, authOptions);
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || 'Failed to update order.');
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to update order.');
+        }
         return result.data;
-    } catch (error) { console.error(error); throw error; }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 /**
@@ -803,7 +833,8 @@ export const fetchAdminUsers = async (params: { page?: number, limit?: number, s
         if (params.limit) queryParams.append('limit', params.limit.toString());
         if (params.searchQuery) queryParams.append('searchQuery', params.searchQuery);
         
-        const response = await fetch(`${API_BASE_URL}/admin/users?${queryParams.toString()}`, getAuthFetchOptions({ cache: 'no-store' }));
+        const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
+        const response = await fetch(`${API_BASE_URL}/admin/users?${queryParams.toString()}`, authOptions);
         if (!response.ok) throw new Error('Failed to fetch admin users.');
         return await response.json();
     } catch (error) { console.error(error); throw error; }
@@ -818,14 +849,20 @@ export const fetchAdminUsers = async (params: { page?: number, limit?: number, s
  */
 export const updateUserRole = async (userId: string, role: 'user' | 'admin'): Promise<IUser> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'PATCH',
             body: JSON.stringify({ role })
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/admin/users/${userId}`, authOptions);
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || 'Failed to update user role.');
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to update user role.');
+        }
         return result.data;
-    } catch (error) { console.error(error); throw error; }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 /**
@@ -835,10 +872,16 @@ export const updateUserRole = async (userId: string, role: 'user' | 'admin'): Pr
  */
 export const fetchAdminVouchers = async (): Promise<AdminVouchersApiResponse> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/admin/vouchers`, getAuthFetchOptions({ cache: 'no-store' }));
-        if (!response.ok) throw new Error('Failed to fetch admin vouchers.');
+        const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
+        const response = await fetch(`${API_BASE_URL}/admin/vouchers`, authOptions);
+        if (!response.ok) {
+            throw new Error('Failed to fetch admin vouchers.');
+        }
         return await response.json();
-    } catch (error) { console.error(error); throw error; }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 /**
@@ -849,14 +892,20 @@ export const fetchAdminVouchers = async (): Promise<AdminVouchersApiResponse> =>
  */
 export const createVoucher = async (voucherData: Partial<IVoucher>): Promise<IVoucher> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/admin/vouchers`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'POST',
             body: JSON.stringify(voucherData)
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/admin/vouchers`, authOptions);
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || 'Failed to create voucher.');
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to create voucher.');
+        }
         return result.data;
-    } catch (error) { console.error(error); throw error; }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 /**
@@ -868,14 +917,20 @@ export const createVoucher = async (voucherData: Partial<IVoucher>): Promise<IVo
  */
 export const updateVoucher = async (voucherId: string, voucherData: Partial<IVoucher>): Promise<IVoucher> => {
     try {
-        const response = await fetch(`${API_BASE_URL}/admin/vouchers/${voucherId}`, getAuthFetchOptions({
+        const authOptions = await getAuthFetchOptions({
             method: 'PATCH',
             body: JSON.stringify(voucherData)
-        }));
+        });
+        const response = await fetch(`${API_BASE_URL}/admin/vouchers/${voucherId}`, authOptions);
         const result = await response.json();
-        if (!response.ok) throw new Error(result.message || 'Failed to update voucher.');
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to update voucher.');
+        }
         return result.data;
-    } catch (error) { console.error(error); throw error; }
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 // --- Admin Location Management Functions ---
@@ -885,10 +940,18 @@ export const updateVoucher = async (voucherId: string, voucherData: Partial<IVou
  * @returns A promise resolving to an array of all countries.
  */
 export const fetchAdminCountries = async (): Promise<ICountry[]> => {
-    const res = await fetch(`${API_BASE_URL}/admin/locations/countries`, getAuthFetchOptions({ cache: 'no-store' }));
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.message || 'Failed to fetch countries');
-    return result.data;
+    try {
+        const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
+        const response = await fetch(`${API_BASE_URL}/admin/locations/countries`, authOptions);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to fetch countries');
+        }
+        return result.data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 /**
@@ -896,10 +959,18 @@ export const fetchAdminCountries = async (): Promise<ICountry[]> => {
  * @returns A promise resolving to an array of all counties.
  */
 export const fetchAdminCounties = async (): Promise<ICounty[]> => {
-    const res = await fetch(`${API_BASE_URL}/admin/locations/counties`, getAuthFetchOptions({ cache: 'no-store' }));
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.message || 'Failed to fetch counties');
-    return result.data;
+    try {
+        const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
+        const response = await fetch(`${API_BASE_URL}/admin/locations/counties`, authOptions);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to fetch counties');
+        }
+        return result.data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 /**
@@ -907,10 +978,18 @@ export const fetchAdminCounties = async (): Promise<ICounty[]> => {
  * @returns A promise resolving to an array of all cities.
  */
 export const fetchAdminCities = async (): Promise<ICity[]> => {
-    const res = await fetch(`${API_BASE_URL}/admin/locations/cities`, getAuthFetchOptions({ cache: 'no-store' }));
-    const result = await res.json();
-    if (!res.ok) throw new Error(result.message || 'Failed to fetch cities');
-    return result.data;
+    try {
+        const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
+        const response = await fetch(`${API_BASE_URL}/admin/locations/cities`, authOptions);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to fetch cities');
+        }
+        return result.data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 /**
@@ -920,13 +999,21 @@ export const fetchAdminCities = async (): Promise<ICity[]> => {
  * @returns The newly created location object.
  */
 const createLocation = async (type: 'countries' | 'counties' | 'cities', data: any) => {
-    const response = await fetch(`${API_BASE_URL}/admin/locations/${type}`, getAuthFetchOptions({
-        method: 'POST',
-        body: JSON.stringify(data)
-    }));
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || `Failed to create ${type}`);
-    return result.data;
+    try {
+        const authOptions = await getAuthFetchOptions({
+            method: 'POST',
+            body: JSON.stringify(data)
+        });
+        const response = await fetch(`${API_BASE_URL}/admin/locations/${type}`, authOptions);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || `Failed to create ${type}`);
+        }
+        return result.data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 export const createCountry = (data: { name: string, isActive: boolean }) => createLocation('countries', data);
@@ -941,13 +1028,21 @@ export const createCity = (data: { name: string, county: string, deliveryFee: nu
  * @returns The updated location object.
  */
 const updateLocation = async (type: 'countries' | 'counties' | 'cities', id: string, data: any) => {
-    const response = await fetch(`${API_BASE_URL}/admin/locations/${type}/${id}`, getAuthFetchOptions({
-        method: 'PATCH',
-        body: JSON.stringify(data)
-    }));
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.message || `Failed to update ${type}`);
-    return result.data;
+    try {
+        const authOptions = await getAuthFetchOptions({
+            method: 'PATCH',
+            body: JSON.stringify(data)
+        });
+        const response = await fetch(`${API_BASE_URL}/admin/locations/${type}/${id}`, authOptions);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || `Failed to update ${type}`);
+        }
+        return result.data;
+    } catch (error) {
+        console.error(error);
+        throw error;
+    }
 }
 
 export const updateCountry = (id: string, data: Partial<ICountry>) => updateLocation('countries', id, data);
