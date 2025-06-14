@@ -18,7 +18,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { IUser } from "@/types";
 import { columns } from "./columns";
 import { AdminUsersApiResponse, updateUserRole } from "@/lib/data";
 import { useDebounce } from "@/hooks/use-debounce";

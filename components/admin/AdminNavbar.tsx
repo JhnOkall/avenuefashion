@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import {
   Menu,
-  User,
-  ChevronDown,
   Package2,
   Home,
   Package,

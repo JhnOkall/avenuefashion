@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select";
 import {
   Card,
-  CardContent,
   CardFooter,
   CardHeader,
 } from "@/components/ui/card";

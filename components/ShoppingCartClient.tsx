@@ -243,8 +243,8 @@ interface ShoppingCartClientProps {
 // enabling a smoother user experience with optimistic updates managed by the context.
 export const ShoppingCartClient = ({
   initialCart,
-  recommendedProducts,
-}: ShoppingCartClientProps) => {
+}: // recommendedProducts,
+ShoppingCartClientProps) => {
   const router = useRouter();
   // `useTransition` provides a pending state to give visual feedback during server actions.
   const [isPending, startTransition] = useTransition();

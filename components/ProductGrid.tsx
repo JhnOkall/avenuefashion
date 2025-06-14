@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useTransition } from "react";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +23,7 @@ import { Filter, ChevronDown, ArrowUpDown } from "lucide-react";
 import { ProductFilters } from "./ProductFilters";
 import ProductCard from "./productCard";
 import { IProduct } from "@/types";
-import { fetchProducts, FetchProductsParams } from "@/lib/data";
+import { fetchProducts } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 
 /**
