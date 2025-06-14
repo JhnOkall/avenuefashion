@@ -111,7 +111,7 @@ const ProductGrid = ({
   );
 
   return (
-    <section className="bg-muted py-8 md:py-12">
+    <section className="bg-background py-8 md:py-12">
       <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
         {/* Toolbar for Filtering and Sorting */}
         <div className="mb-4 flex items-center gap-2 md:mb-8">
@@ -162,7 +162,7 @@ const ProductGrid = ({
         </div>
 
         {/* Product Grid Display */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product) => (
             <ProductCard key={product._id.toString()} product={product} />
           ))}

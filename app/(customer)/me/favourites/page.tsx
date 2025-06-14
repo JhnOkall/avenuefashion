@@ -10,7 +10,7 @@ import { Heart } from "lucide-react";
  * @returns {JSX.Element} A message prompting the user to add favorites.
  */
 const NoFavorites = () => (
-  <div className="flex flex-col items-center justify-center bg-muted py-20 text-center">
+  <div className="flex flex-col items-center justify-center bg-background py-20 text-center">
     <Heart className="mb-4 h-16 w-16 text-muted-foreground" />
     <h2 className="text-2xl font-semibold">No Favorites Yet</h2>
     <p className="mt-2 text-muted-foreground">
