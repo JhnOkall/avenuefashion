@@ -46,11 +46,12 @@ const OrderDetailSkeleton = () => (
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
+  const resolvedParams = await params;
   return {
-    title: `Order Details for ${params.id} | Avenue Fashion`,
-    description: `Track and view the details for your order ${params.id}.`,
+    title: `Order Details for ${resolvedParams.id} | Avenue Fashion`,
+    description: `Track and view the details for your order ${resolvedParams.id}.`,
   };
 }
 
@@ -72,7 +73,7 @@ export async function generateMetadata({
 export default async function OrderDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
   /**
    * Fetches the current user's session. This is a critical security step.
@@ -80,8 +81,9 @@ export default async function OrderDetailPage({
    * The `callbackUrl` ensures they are returned to this specific order page after logging in.
    */
   const session = await auth();
+  const resolvedParams = await params;
   if (!session?.user) {
-    redirect(`/api/auth/signin?callbackUrl=/me/orders/${params.id}`);
+    redirect(`/api/auth/signin?callbackUrl=/me/orders/${resolvedParams.id}`);
   }
 
   /**
@@ -89,7 +91,7 @@ export default async function OrderDetailPage({
    * responsible for ensuring that a user can only fetch their own order,
    * preventing unauthorized access to other users' data.
    */
-  const order = await fetchOrderById(params.id);
+  const order = await fetchOrderById(resolvedParams.id);
 
   /**
    * If the `fetchOrderById` call returns null, it means the order either does not

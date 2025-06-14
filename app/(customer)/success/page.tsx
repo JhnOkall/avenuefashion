@@ -52,9 +52,10 @@ const ConfirmationSkeleton = () => (
 export default async function SuccessPage({
   searchParams,
 }: {
-  searchParams: { orderId?: string };
+  searchParams: Promise<{ orderId?: string }>;
 }) {
-  const { orderId } = searchParams;
+  const resolvedParams = await searchParams;
+  const { orderId } = resolvedParams;
 
   /**
    * Critical validation: If no `orderId` is present in the URL, the page cannot
