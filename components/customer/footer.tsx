@@ -118,7 +118,7 @@ const Footer = () => {
                 <CardContent className="p-0">
                   <Link
                     href="#"
-                    className="text-base font-medium text-primary underline-offset-4 hover:underline"
+                    className="text-base font-medium text-primary-foreground underline-offset-4 hover:underline"
                   >
                     Sign In or Create Account
                   </Link>
@@ -151,7 +151,10 @@ const Footer = () => {
                     <p className="mb-3 text-sm font-medium text-foreground">
                       Trade on the go with the{" "}
                       {/* TODO: Replace '#' with the actual app landing page URL. */}
-                      <Link href="#" className="text-primary hover:underline">
+                      <Link
+                        href="#"
+                        className="text-primary-foreground hover:underline"
+                      >
                         Avenue Fashion App
                       </Link>
                     </p>
@@ -211,7 +214,7 @@ const Footer = () => {
               href="/"
               className="flex items-center gap-2 text-lg font-semibold md:text-base"
             >
-              <Package2 className="h-6 w-6 text-primary" />
+              <Package2 className="h-6 w-6 text-primary-foreground" />
               <span>Avenue Fashion</span>
             </Link>
 

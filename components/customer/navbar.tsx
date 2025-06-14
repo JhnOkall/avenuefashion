@@ -86,7 +86,7 @@ export default function Navbar() {
           href="/"
           className="hidden items-center gap-2 font-semibold lg:flex"
         >
-          <Package2 className="h-6 w-6 text-primary" />
+          <Package2 className="h-6 w-6 text-primary-foreground" />
           <span>Avenue Fashion</span>
         </Link>
       </div>
