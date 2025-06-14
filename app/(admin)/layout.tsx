@@ -52,7 +52,7 @@ export default async function AdminLayout({
         {/* Main content area that includes the navbar, the page content, and the footer. */}
         <div className="flex flex-col">
           <AdminNavbar />
-          <main className="flex flex-1 flex-col gap-4 bg-muted/40 p-4 lg:gap-6 lg:p-6">
+          <main className="flex flex-1 flex-col gap-4 bg-muted p-4 lg:gap-6 lg:p-6">
             {/* Renders the specific admin page (e.g., Dashboard, Products, Orders) passed as children. */}
             {children}
           </main>

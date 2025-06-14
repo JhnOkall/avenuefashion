@@ -124,7 +124,7 @@ const Footer = () => {
 
             {/* Newsletter and Socials Section */}
             <div className="mt-8 w-full lg:mt-0 lg:max-w-md">
-              <Card className="bg-muted/50 p-6">
+              <Card className="bg-muted p-6">
                 <CardContent className="p-0">
                   <Link
                     href="#"
