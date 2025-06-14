@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/contexts/CartContext";
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
+import { ThemeProvider } from "next-themes";
 
 /**
  * Initializes the Geist Sans font for the application.
@@ -63,26 +64,28 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {/*
-         * The `SessionProvider` is essential for making the server-fetched session data
-         * available to client components via the `useSession` hook.
-         * This is the recommended pattern for the Next.js App Router.
-         */}
-        <SessionProvider session={session}>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
           {/*
-           * Wraps the application with the `CartProvider`, making shopping cart
-           * state and actions available globally via the `useCart` hook.
+           * The `SessionProvider` is essential for making the server-fetched session data
+           * available to client components via the `useSession` hook.
+           * This is the recommended pattern for the Next.js App Router.
            */}
-          <CartProvider>
-            {/* Renders the active page component passed as children. */}
-            {children}
+          <SessionProvider session={session}>
             {/*
-             * Renders the `Toaster` component at the root level, allowing any
-             * component to trigger toast notifications.
+             * Wraps the application with the `CartProvider`, making shopping cart
+             * state and actions available globally via the `useCart` hook.
              */}
-            <Toaster />
-          </CartProvider>
-        </SessionProvider>
+            <CartProvider>
+              {/* Renders the active page component passed as children. */}
+              {children}
+              {/*
+               * Renders the `Toaster` component at the root level, allowing any
+               * component to trigger toast notifications.
+               */}
+              <Toaster />
+            </CartProvider>
+          </SessionProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

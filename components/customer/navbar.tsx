@@ -26,6 +26,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useCart } from "@/contexts/CartContext";
 import { GlobalSearch } from "./GlobalSearch";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 /**
  * A helper function to format a numeric price into a localized currency string.
@@ -97,6 +98,7 @@ export default function Navbar() {
 
       {/* Right-aligned Actions */}
       <div className="flex items-center gap-2">
+        <ThemeToggle />
         {/* Cart Dropdown Menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
