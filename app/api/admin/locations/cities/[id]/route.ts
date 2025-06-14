@@ -13,7 +13,7 @@ import City from '@/models/City';
  * @param {string} context.params.id - The unique identifier of the city to be updated.
  * @returns {Promise<NextResponse>} A JSON response indicating success or failure.
  */
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   /**
    * Performs an authentication and authorization check.
    */
@@ -25,6 +25,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
+
+     // Await the params Promise to access the route parameters
+     const resolvedParams = await params;
     
     // Parses the JSON body from the incoming PATCH request (e.g., { name, isActive, deliveryFee }).
     // TODO: Implement server-side validation (e.g., using Zod) to ensure the request body has the correct shape and data types before processing.
@@ -34,7 +37,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
      * Finds a city document by its ID and applies the updates from the request body.
      * The `{ new: true, runValidators: true }` options ensure that the updated document is returned and schema validations are run.
      */
-    const updatedCity = await City.findByIdAndUpdate(params.id, body, { new: true, runValidators: true });
+    const updatedCity = await City.findByIdAndUpdate(resolvedParams.id, body, { new: true, runValidators: true });
 
     // If no document is found with the provided ID, return a 404 Not Found response.
     if (!updatedCity) {

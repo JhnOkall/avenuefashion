@@ -14,7 +14,7 @@ import mongoose from 'mongoose';
  * @param {string} context.params.id - The unique identifier of the county to be updated.
  * @returns {Promise<NextResponse>} A JSON response indicating success or failure.
  */
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   /**
    * Performs an authentication and authorization check.
    */
@@ -26,7 +26,11 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
-    const { id } = params;
+
+     // Await the params Promise to access the route parameters
+    const resolvedParams = await params;
+    
+    const { id } = resolvedParams;
 
     // Validates that the provided ID is a valid MongoDB ObjectId.
     if (!mongoose.Types.ObjectId.isValid(id)) {

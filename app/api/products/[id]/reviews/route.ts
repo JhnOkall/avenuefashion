@@ -16,12 +16,16 @@ import mongoose from 'mongoose';
  * @param {string} context.params.id - The ID of the product whose reviews are being fetched.
  * @returns {Promise<NextResponse>} A JSON response with paginated reviews or an error message.
  */
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+
+   // Await the params Promise to access the route parameters
+  const resolvedParams = await params;
+  
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
 
-    const { id: productId } = params;
+    const { id: productId } = resolvedParams;
     // Validates that the provided productId is a valid MongoDB ObjectId format.
     if (!productId || !mongoose.Types.ObjectId.isValid(productId)) {
       return NextResponse.json({ message: 'Invalid Product ID.' }, { status: 400 });
@@ -58,7 +62,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error fetching reviews for product ${params.id}:`, error);
+    console.error(`Error fetching reviews for product ${resolvedParams.id}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -73,7 +77,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
  * @param {string} context.params.id - The ID of the product being reviewed.
  * @returns {Promise<NextResponse>} A JSON response with the newly created review or an error message.
  */
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   /**
    * Fetches the current user's session. If no session exists, the user is unauthorized.
    */
@@ -82,11 +86,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     return NextResponse.json({ message: 'Unauthorized. Please log in to leave a review.' }, { status: 401 });
   }
 
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
+
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
 
-    const { id: productId } = params;
+    const { id: productId } = resolvedParams;
     // Parses the JSON body from the incoming POST request.
     const body = await req.json();
     const { rating, title, text } = body;
@@ -146,7 +153,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error creating review for product ${params.id}:`, error);
+    console.error(`Error creating review for product ${resolvedParams.id}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

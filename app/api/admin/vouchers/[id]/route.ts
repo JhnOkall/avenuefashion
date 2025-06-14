@@ -14,7 +14,7 @@ import mongoose from 'mongoose';
  * @param {string} context.params.id - The unique identifier of the voucher to be updated.
  * @returns {Promise<NextResponse>} A JSON response indicating success or failure.
  */
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   /**
    * Performs an authentication and authorization check.
    */
@@ -22,13 +22,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (session?.user?.role !== 'admin') {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
+
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
   
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
     
     // Validates that the provided ID is a valid MongoDB ObjectId.
-    if (!mongoose.Types.ObjectId.isValid(params.id)) {
+    if (!mongoose.Types.ObjectId.isValid(resolvedParams.id)) {
       return NextResponse.json({ message: 'Invalid Voucher ID' }, { status: 400 });
     }
 
@@ -40,7 +43,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
      * Finds a voucher document by its ID and applies the updates from the request body.
      * The `{ new: true, runValidators: true }` options ensure that the updated document is returned and schema validations are run.
      */
-    const updatedVoucher = await Voucher.findByIdAndUpdate(params.id, body, { new: true, runValidators: true });
+    const updatedVoucher = await Voucher.findByIdAndUpdate(resolvedParams.id, body, { new: true, runValidators: true });
 
     // If no document is found with the provided ID, return a 404 Not Found response.
     if (!updatedVoucher) {
@@ -51,7 +54,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     return NextResponse.json({ message: 'Voucher updated successfully', data: updatedVoucher }, { status: 200 });
   } catch (error: any) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error updating voucher ${params.id}:`, error);
+    console.error(`Error updating voucher ${resolvedParams.id}:`, error);
     
     // Specifically handles the MongoDB duplicate key error (code 11000), which can occur if the `code` is changed to one that already exists.
     if (error.code === 11000) {
