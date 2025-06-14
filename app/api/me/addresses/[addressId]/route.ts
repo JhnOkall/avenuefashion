@@ -15,7 +15,7 @@ import mongoose from 'mongoose';
  * @returns {Promise<NextResponse>} A JSON response indicating the result of the operation.
  */
 // TODO: When an address is deleted, consider if it was the default address. If so, logic should be added to promote another address to be the new default.
-export async function DELETE(req: Request, { params }: { params: { addressId: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ addressId: string }> }) {
   /**
    * Fetches the current user's session. If no session exists, the user is unauthorized.
    */
@@ -24,10 +24,13 @@ export async function DELETE(req: Request, { params }: { params: { addressId: st
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
+
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
-    const { addressId } = params;
+    const { addressId } = resolvedParams;
 
     // Validates that the provided addressId is a valid MongoDB ObjectId format.
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
@@ -57,7 +60,7 @@ export async function DELETE(req: Request, { params }: { params: { addressId: st
     return NextResponse.json({ message: 'Address deleted successfully' }, { status: 200 });
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error deleting address ${params.addressId}:`, error);
+    console.error(`Error deleting address ${resolvedParams.addressId}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

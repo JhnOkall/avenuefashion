@@ -14,7 +14,7 @@ import mongoose from 'mongoose';
  * @param {string} context.params.reviewId - The ID of the review to be updated.
  * @returns {Promise<NextResponse>} A JSON response indicating success or failure.
  */
-export async function PATCH(req: Request, { params }: { params: { reviewId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ reviewId: string }> }) {
   /**
    * Fetches the current user's session. If no session exists, the user is unauthorized.
    */
@@ -23,10 +23,13 @@ export async function PATCH(req: Request, { params }: { params: { reviewId: stri
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
+
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
-    const { reviewId } = params;
+    const { reviewId } = resolvedParams;
     
     // Parses the JSON body from the incoming PATCH request.
     // TODO: Implement server-side validation (e.g., using Zod) to ensure the request body has the correct shape and data types (e.g., rating is a number between 1 and 5).
@@ -72,7 +75,7 @@ export async function PATCH(req: Request, { params }: { params: { reviewId: stri
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error updating review ${params.reviewId}:`, error);
+    console.error(`Error updating review ${resolvedParams.reviewId}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
@@ -87,7 +90,7 @@ export async function PATCH(req: Request, { params }: { params: { reviewId: stri
  * @param {string} context.params.reviewId - The ID of the review to be deleted.
  * @returns {Promise<NextResponse>} A JSON response indicating success or failure.
  */
-export async function DELETE(req: Request, { params }: { params: { reviewId: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ reviewId: string }> }) {
   /**
    * Fetches the current user's session.
    */
@@ -96,10 +99,13 @@ export async function DELETE(req: Request, { params }: { params: { reviewId: str
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
+
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
-    const { reviewId } = params;
+    const { reviewId } = resolvedParams;
 
     // Validates the provided reviewId format.
     if (!mongoose.Types.ObjectId.isValid(reviewId)) {
@@ -128,7 +134,7 @@ export async function DELETE(req: Request, { params }: { params: { reviewId: str
     return NextResponse.json({ message: 'Review deleted successfully.' }, { status: 200 });
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error deleting review ${params.reviewId}:`, error);
+    console.error(`Error deleting review ${resolvedParams.reviewId}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

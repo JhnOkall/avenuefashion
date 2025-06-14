@@ -14,7 +14,7 @@ import mongoose from 'mongoose';
  * @param {string} context.params.id - The unique identifier of the user to be updated.
  * @returns {Promise<NextResponse>} A JSON response indicating success or failure.
  */
-export async function PATCH(req: Request, { params }: { params: { id:string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id:string }> }) {
   /**
    * Performs an authentication and authorization check.
    */
@@ -23,10 +23,13 @@ export async function PATCH(req: Request, { params }: { params: { id:string } })
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
 
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
+
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
-    const { id } = params;
+    const { id } = resolvedParams;
 
     // Validates that the provided ID is a valid MongoDB ObjectId.
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -71,7 +74,7 @@ export async function PATCH(req: Request, { params }: { params: { id:string } })
     return NextResponse.json({ message: 'User role updated successfully', data: updatedUser }, { status: 200 });
   } catch (error: any) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error updating role for user ${params.id}:`, error);
+    console.error(`Error updating role for user ${resolvedParams.id}:`, error);
     return NextResponse.json({ message: 'Error updating user role', error: error.message }, { status: 500 });
   }
 }

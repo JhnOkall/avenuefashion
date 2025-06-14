@@ -15,12 +15,16 @@ import mongoose from 'mongoose';
  * @returns {Promise<NextResponse>} A JSON response containing a list of cities or an error message.
  */
 // TODO: Consider caching the results of this endpoint, as location data changes infrequently. This can be done with route segment config options or a custom caching strategy.
-export async function GET(req: Request, { params }: { params: { countyId: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ countyId: string }> }) {
+
+   // Await the params Promise to access the route parameters
+  const resolvedParams = await params;
+  
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
 
-    const { countyId } = params;
+    const { countyId } = resolvedParams;
     
     // Validates that the provided countyId is a valid MongoDB ObjectId format.
     if (!countyId || !mongoose.Types.ObjectId.isValid(countyId)) {
@@ -42,7 +46,7 @@ export async function GET(req: Request, { params }: { params: { countyId: string
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error fetching cities for county ${params.countyId}:`, error);
+    console.error(`Error fetching cities for county ${resolvedParams.countyId}:`, error);
     // In case of an unexpected error, return a generic 500 Internal Server Error response.
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
