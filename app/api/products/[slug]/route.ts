@@ -1,27 +1,25 @@
 import { NextResponse } from 'next/server';
 import connectDB from '@/lib/db';
 import Product from '@/models/Product';
+import '@/models/Brand'; 
+import '@/models/Review'; 
 
 /**
  * A Next.js API route handler for fetching a single product by its unique slug.
  * This is a public endpoint, typically used for the product details page.
  *
- * @param {Request} req - The incoming GET request object.
+ * @param {Request} req - The incoming GET request object (unused in this handler).
  * @param {object} context - The context object containing route parameters.
  * @param {object} context.params - The parameters from the dynamic route segment.
  * @param {string} context.params.slug - The unique, URL-friendly slug of the product to fetch.
  * @returns {Promise<NextResponse>} A JSON response containing the detailed product data or an error message.
  */
-export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
-
-   // Await the params Promise to access the route parameters
-  const resolvedParams = await params;
-  
+export async function GET(req: Request, { params }: { params: { slug: string } }) {
   try {
     // Establishes a connection to the MongoDB database.
     await connectDB();
 
-    const { slug } = resolvedParams;
+    const { slug } = params;
 
     // Validates the presence of the required slug parameter.
     if (!slug) {
@@ -30,25 +28,13 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
 
     /**
      * Finds a single product document where the `slug` field matches the provided parameter.
-     * This query also populates related data for a comprehensive response:
-     * - `brand`: Replaces the brand's ObjectId with its name.
-     * - `reviews`: Replaces the review ObjectIds with their full documents.
-     *   - The `user` within each review is also populated to include the reviewer's name and image.
-     * The reviews are sorted in descending order by their creation date.
+     * This query only finds products marked as 'isActive' to prevent disabled products from appearing.
+     * It populates the `brand` field to replace the brand's ObjectId with its name.
      */
-    // TODO: The current implementation populates ALL reviews for a product, which can be inefficient if a product has thousands of reviews.
-    // For performance, this should be refactored. The main product details should be fetched here, and the reviews should be fetched separately
-    // in a paginated manner by a dedicated endpoint (e.g., `/api/products/[id]/reviews`).
-    const product = await Product.findOne({ slug: slug, isActive: true }) // Only find active products.
-      .populate('brand', 'name')
-      .populate({
-        path: 'reviews',
-        populate: {
-          path: 'user',
-          select: 'name image'
-        },
-        options: { sort: { createdAt: -1 } }
-      });
+    // NOTE: Review data is no longer populated here. It is fetched separately by the
+    // dedicated reviews endpoint to improve initial page load performance.
+    const product = await Product.findOne({ slug: slug, isActive: true })
+      .populate('brand', 'name');
 
     // If no product is found with the provided slug, return a 404 Not Found response.
     if (!product) {
@@ -63,7 +49,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
 
   } catch (error) {
     // TODO: Implement a more robust logging service for production.
-    console.error(`Error fetching product with slug ${resolvedParams.slug}:`, error);
+    console.error(`Error fetching product with slug ${params.slug}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

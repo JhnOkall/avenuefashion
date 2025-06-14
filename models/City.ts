@@ -1,5 +1,6 @@
 import { Schema, model, models } from 'mongoose';
 import { ICity } from '@/types';
+import '@/models/County'; 
 
 /**
  * Mongoose schema for the City model.
@@ -32,7 +33,7 @@ const CitySchema = new Schema<ICity>({
    */
   county: {
     type: Schema.Types.ObjectId,
-    ref: 'County',
+    ref: 'County', 
     required: true,
   },
   
