@@ -11,6 +11,7 @@ import {
   ChevronDown,
   X,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -21,63 +22,54 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { useCart } from "@/contexts/CartContext";
 import { GlobalSearch } from "./GlobalSearch";
-import { useRouter } from "next/navigation";
 
 /**
  * A helper function to format a numeric price into a localized currency string.
  * @param {number} price - The price to format.
  * @returns {string} The formatted currency string.
  */
-// TODO: Relocate this helper to a shared `utils/formatters.ts` file for application-wide reusability.
+// TODO: Relocate this helper to a shared `utils/formatters.ts`.
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
     price
   );
 
 /**
- * An array of navigation links for the main navbar.
- */
-// TODO: For a production application, these links should be managed dynamically,
-// potentially fetched from a headless CMS or a configuration API.
-const navLinks = [
-  { href: "#", label: "Best Sellers" },
-  { href: "#", label: "Gift Ideas" },
-  { href: "#", label: "Today's Deals" },
-];
-
-/**
  * The main application navigation bar. This client component handles responsive
  * navigation, global search, and interactive cart and user account dropdowns.
- * It integrates with NextAuth.js for session management and a custom CartContext
- * for shopping cart state.
+ * It integrates with NextAuth.js and consumes the global CartContext for live cart state.
  */
 export default function Navbar() {
   const router = useRouter();
   const { data: session } = useSession();
-  const { cart, itemCount, removeFromCart } = useCart();
-  // `useTransition` provides a pending state for non-blocking UI updates,
-  // useful for operations like removing an item from the cart.
   const [isPending, startTransition] = useTransition();
 
+  // ** 2. USE the context to get live cart data and actions **
+  // This is the single source of truth for the cart state.
+  const { cart, itemCount, removeFromCart } = useCart();
+
   /**
-   * Handles the removal of an item from the cart, providing optimistic UI
-   * feedback via the CartContext and user notifications via toasts.
+   * Handles the removal of an item from the cart by calling the function
+   * provided by the CartContext. The context handles the optimistic UI update
+   * and API call.
    * @param {string} productId - The ID of the product to remove.
    * @param {string} productName - The name of the product for the notification.
    */
   const handleRemove = (productId: string, productName: string) => {
     startTransition(async () => {
       try {
+        // ** 3. CALL the context's function **
+        // The Navbar no longer needs to know how to remove items, only that it can.
         await removeFromCart(productId);
         toast.success("Removed from Cart", {
           description: `${productName} has been removed.`,
         });
       } catch (error) {
+        // The context will handle reverting the UI state. We just show an error toast.
         toast.error("Error", {
           description: "Could not remove item from cart.",
         });
@@ -88,40 +80,6 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6">
       <div className="flex items-center gap-2 lg:gap-6">
-        {/* Mobile Navigation (Hamburger Menu) */}
-        <Sheet>
-          <SheetTrigger asChild>
-            <Button
-              variant="outline"
-              size="icon"
-              className="shrink-0 lg:hidden"
-            >
-              <Menu className="h-5 w-5" />
-              <span className="sr-only">Toggle navigation menu</span>
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left">
-            <nav className="grid gap-6 text-lg font-medium">
-              <Link
-                href="/"
-                className="flex items-center gap-2 text-lg font-semibold"
-              >
-                <Package2 className="h-6 w-6 text-primary" />
-                <span className="sr-only">Avenue Fashion</span>
-              </Link>
-              {navLinks.map((link) => (
-                <Link
-                  key={link.label}
-                  href={link.href}
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
-          </SheetContent>
-        </Sheet>
-
         {/* Desktop Logo */}
         <Link
           href="/"
@@ -132,12 +90,12 @@ export default function Navbar() {
         </Link>
       </div>
 
-      {/* Global Search Bar - centralized in the navbar */}
+      {/* Global Search Bar */}
       <div className="flex flex-1 justify-center px-4">
         <GlobalSearch />
       </div>
 
-      {/* Right-aligned Actions: Cart and User Account */}
+      {/* Right-aligned Actions */}
       <div className="flex items-center gap-2">
         {/* Cart Dropdown Menu */}
         <DropdownMenu>
@@ -167,6 +125,7 @@ export default function Navbar() {
             <DropdownMenuLabel>My Cart ({itemCount})</DropdownMenuLabel>
             <DropdownMenuSeparator />
             <div className="max-h-[300px] space-y-2 overflow-y-auto p-1">
+              {/* The cart data is now consumed directly from the context */}
               {cart && cart.items.length > 0 ? (
                 cart.items.map((item) => (
                   <div
@@ -216,6 +175,7 @@ export default function Navbar() {
 
         {/* User Account Dropdown Menu */}
         <DropdownMenu>
+          {/* This section remains unchanged */}
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" className="h-9 w-auto px-2 sm:px-4">
               <User className="h-5 w-5" />
@@ -229,7 +189,6 @@ export default function Navbar() {
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
             {session ? (
-              // Actions for authenticated users
               <>
                 <DropdownMenuItem asChild>
                   <Link href="/me">My Profile</Link>
@@ -240,7 +199,6 @@ export default function Navbar() {
                 <DropdownMenuItem asChild>
                   <Link href="/me/favourites">Favorites</Link>
                 </DropdownMenuItem>
-                {/* Admin-specific link */}
                 {session.user?.role === "admin" && (
                   <>
                     <DropdownMenuSeparator />
@@ -255,7 +213,6 @@ export default function Navbar() {
                 </DropdownMenuItem>
               </>
             ) : (
-              // Action for guest users
               <DropdownMenuItem
                 onSelect={() => router.push("/api/auth/signin")}
               >
