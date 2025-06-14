@@ -75,7 +75,7 @@ const OverviewChart = ({
       <CartesianGrid strokeDasharray="3 3" />
       <XAxis
         dataKey="date"
-        stroke="#888888"
+        stroke="#111827"
         fontSize={12}
         tickLine={false}
         axisLine={false}
@@ -88,12 +88,12 @@ const OverviewChart = ({
         }
       />
       <YAxis
-        stroke="#888888"
+        stroke="#111827"
         fontSize={12}
         tickLine={false}
         axisLine={false}
         // Formats the y-axis labels to display large numbers in thousands (e.g., "$5k").
-        tickFormatter={(value) => `$${Number(value) / 1000}k`}
+        tickFormatter={(value) => `Ksh. ${Number(value) / 1000}k`}
       />
       <Tooltip
         cursor={{ fill: "hsl(var(--muted))" }}
