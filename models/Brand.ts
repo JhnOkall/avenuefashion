@@ -22,11 +22,10 @@ const BrandSchema = new Schema<IBrand>({
    * Flag to determine if the brand is active. Inactive brands and their
    * associated products might be hidden from the storefront.
    */
-  // TODO: Add the `isActive` field to the schema to align with the IBrand interface.
-  // isActive: {
-  //   type: Boolean,
-  //   default: true,
-  // },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
 }, {
   /**
    * Automatically adds `createdAt` and `updatedAt` timestamps to the document.

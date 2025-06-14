@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,8 +23,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { IBrand, IProduct } from "@/types";
-import { createProduct, fetchBrands, updateProduct } from "@/lib/data";
-import { Loader2 } from "lucide-react";
+import {
+  createBrand,
+  createProduct,
+  fetchBrands,
+  updateProduct,
+} from "@/lib/data";
+import { Loader2, Plus } from "lucide-react";
 
 /**
  * Defines the props required by the ProductForm component.
@@ -62,6 +68,11 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
   const [formData, setFormData] = useState(initialFormState);
   const [brands, setBrands] = useState<IBrand[]>([]);
   const [isSubmitting, startTransition] = useTransition();
+
+  // State for the new brand creation dialog
+  const [isBrandDialogOpen, setIsBrandDialogOpen] = useState(false);
+  const [newBrandName, setNewBrandName] = useState("");
+  const [isCreatingBrand, startBrandCreationTransition] = useTransition();
 
   /**
    * Effect to fetch the list of available brands when the component mounts.
@@ -153,90 +164,168 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
     });
   };
 
+  /**
+   * Handles the creation of a new brand.
+   */
+  const handleCreateBrand = async () => {
+    if (!newBrandName.trim()) {
+      toast.error("Brand name cannot be empty.");
+      return;
+    }
+    startBrandCreationTransition(async () => {
+      try {
+        const newBrand = await createBrand({ name: newBrandName });
+        toast.success("Brand Created", {
+          description: `Brand "${newBrand.name}" was successfully created.`,
+        });
+        // Add new brand to state and select it automatically
+        setBrands((prev) => [...prev, newBrand]);
+        setFormData((prev) => ({ ...prev, brand: newBrand._id.toString() }));
+        // Close the dialog and reset the input
+        setIsBrandDialogOpen(false);
+        setNewBrandName("");
+      } catch (error: any) {
+        toast.error("Brand Creation Failed", { description: error.message });
+      }
+    });
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
-          <DialogTitle>
-            {product ? "Edit Product" : "Create New Product"}
-          </DialogTitle>
-        </DialogHeader>
-        <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
-            <Input id="name" value={formData.name} onChange={handleChange} />
+    <>
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>
+              {product ? "Edit Product" : "Create New Product"}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Name</Label>
+              <Input id="name" value={formData.name} onChange={handleChange} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="price">Price</Label>
+              <Input
+                id="price"
+                type="number"
+                value={formData.price}
+                onChange={handleChange}
+                min="0"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="brand">Brand</Label>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={formData.brand}
+                  onValueChange={(v) => handleSelectChange("brand", v)}
+                >
+                  <SelectTrigger id="brand">
+                    <SelectValue placeholder="Select a brand" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {brands.map((b) => (
+                      <SelectItem
+                        key={b._id.toString()}
+                        value={b._id.toString()}
+                      >
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsBrandDialogOpen(true)}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="condition">Condition</Label>
+              <Select
+                value={formData.condition}
+                onValueChange={(v) => handleSelectChange("condition", v)}
+              >
+                <SelectTrigger id="condition">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="new">New</SelectItem>
+                  <SelectItem value="used">Used</SelectItem>
+                  <SelectItem value="restored">Restored</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="description">
+                Description (one paragraph per line)
+              </Label>
+              <Textarea
+                id="description"
+                value={formData.description.join("\n")}
+                onChange={handleChange}
+                rows={5}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="imageUrl">Image URL</Label>
+              <Input
+                id="imageUrl"
+                value={formData.imageUrl}
+                onChange={handleChange}
+              />
+            </div>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="price">Price</Label>
+          <DialogFooter>
+            <Button onClick={handleSubmit} disabled={isSubmitting}>
+              {isSubmitting && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {isSubmitting ? "Saving..." : "Save Product"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog for creating a new brand */}
+      <Dialog open={isBrandDialogOpen} onOpenChange={setIsBrandDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Brand</DialogTitle>
+            <DialogDescription>
+              Enter the name for the new brand. It will be immediately available
+              for use.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-4">
+            <Label htmlFor="new-brand-name">Brand Name</Label>
             <Input
-              id="price"
-              type="number"
-              value={formData.price}
-              onChange={handleChange}
-              min="0"
+              id="new-brand-name"
+              value={newBrandName}
+              onChange={(e) => setNewBrandName(e.target.value)}
+              placeholder="e.g., Nike, Adidas, etc."
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="brand">Brand</Label>
-            <Select
-              value={formData.brand}
-              onValueChange={(v) => handleSelectChange("brand", v)}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsBrandDialogOpen(false)}
             >
-              <SelectTrigger id="brand">
-                <SelectValue placeholder="Select a brand" />
-              </SelectTrigger>
-              <SelectContent>
-                {brands.map((b) => (
-                  <SelectItem key={b._id.toString()} value={b._id.toString()}>
-                    {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="condition">Condition</Label>
-            <Select
-              value={formData.condition}
-              onValueChange={(v) => handleSelectChange("condition", v)}
-            >
-              <SelectTrigger id="condition">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="new">New</SelectItem>
-                <SelectItem value="used">Used</SelectItem>
-                <SelectItem value="restored">Restored</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="description">
-              Description (one paragraph per line)
-            </Label>
-            <Textarea
-              id="description"
-              value={formData.description.join("\n")}
-              onChange={handleChange}
-              rows={5}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="imageUrl">Image URL</Label>
-            <Input
-              id="imageUrl"
-              value={formData.imageUrl}
-              onChange={handleChange}
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isSubmitting ? "Saving..." : "Save Product"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateBrand} disabled={isCreatingBrand}>
+              {isCreatingBrand && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              {isCreatingBrand ? "Creating..." : "Create Brand"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

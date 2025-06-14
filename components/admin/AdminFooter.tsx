@@ -32,14 +32,6 @@ export const AdminFooter = () => {
           </Link>
           .
         </p>
-        <div className="flex items-center gap-4">
-          <Link href="/" className="hover:text-primary">
-            Avenue Fashion
-          </Link>
-          <Link href="/dashboard" className="hover:text-primary">
-            Admin Home
-          </Link>
-        </div>
       </div>
     </footer>
   );

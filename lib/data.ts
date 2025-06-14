@@ -776,6 +776,31 @@ export const updateProduct = async (productId: string, productData: Partial<IPro
 }
 
 /**
+ * Creates a new brand from the admin panel.
+ * @param brandData - The data for the new brand (requires at least a name).
+ * @returns A promise that resolves to the newly created brand.
+ * @throws Will throw an error if the request fails.
+ */
+export const createBrand = async (brandData: Partial<IBrand>): Promise<IBrand> => {
+    try {
+        const authOptions = await getAuthFetchOptions({
+            method: 'POST',
+            body: JSON.stringify(brandData)
+        });
+        // Assuming the endpoint for brand creation is /api/admin/brands
+        const response = await fetch(`${API_BASE_URL}/admin/brands`, authOptions);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to create brand.');
+        }
+        return result.data;
+    } catch (error) {
+        console.error("Error in createBrand:", error);
+        throw error;
+    }
+}
+
+/**
  * Fetches orders for the admin panel with pagination and status filtering.
  * @param params - Options for pagination and filtering.
  * @returns A promise that resolves to a paginated list of orders.
