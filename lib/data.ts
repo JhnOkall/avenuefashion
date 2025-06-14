@@ -102,6 +102,16 @@ export interface ReviewsApiResponse {
   totalReviews: number;
 }
 
+/**
+ * The structure of the API response for admin vouchers.
+ * This is used when fetching all vouchers for the admin panel.
+ */
+export interface AdminVouchersApiResponse {
+  message: string;
+  data: IVoucher[];
+}
+
+
 // =================================================================
 // PUBLIC DATA FETCHING FUNCTIONS
 // =================================================================
@@ -651,6 +661,13 @@ export interface AdminPaginatedApiResponse<T> {
   currentPage: number;
 }
 
+/** Specific type for the admin products paginated response. */
+export type AdminProductsApiResponse = AdminPaginatedApiResponse<IProduct>;
+/** Specific type for the admin orders paginated response. */
+export type AdminOrdersApiResponse = AdminPaginatedApiResponse<IOrder>;
+/** Specific type for the admin users paginated response. */
+export type AdminUsersApiResponse = AdminPaginatedApiResponse<IUser>;
+
 /**
  * Fetches products for the admin panel with pagination and search.
  * @param params - Options for pagination and searching.
@@ -792,7 +809,7 @@ export const updateUserRole = async (userId: string, role: 'user' | 'admin'): Pr
  * @returns A promise that resolves to a list of all vouchers.
  * @throws Will throw an error if the request fails.
  */
-export const fetchAdminVouchers = async (): Promise<SingleResourceApiResponse<IVoucher[]>> => {
+export const fetchAdminVouchers = async (): Promise<AdminVouchersApiResponse> => {
     try {
         const response = await fetch(`${API_BASE_URL}/admin/vouchers`, { cache: 'no-store' });
         if (!response.ok) throw new Error('Failed to fetch admin vouchers.');
