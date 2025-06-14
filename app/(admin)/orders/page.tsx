@@ -40,7 +40,7 @@ const TableSkeleton = () => (
  * 5. Passing the fetched data to the interactive `OrderDataTable` client component.
  *
  * @param {object} props - The component props.
- * @param {object} [props.searchParams] - The URL search parameters provided by Next.js.
+ * @param {Promise<object>} [props.searchParams] - The URL search parameters provided by Next.js.
  * @returns {Promise<JSX.Element>} A promise that resolves to the rendered order management page.
  */
 // TODO: Add a `try...catch` block around the `fetchAdminOrders` call to gracefully handle potential API errors.
@@ -48,14 +48,15 @@ const TableSkeleton = () => (
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams?: { status?: string; page?: string };
+  searchParams?: Promise<{ status?: string; page?: string }>;
 }) {
   /**
-   * Reads the 'status' and 'page' from the URL search parameters, providing
-   * sensible defaults for the initial page load.
+   * Await the searchParams Promise to extract the 'status' and 'page' values,
+   * providing sensible defaults for the initial page load.
    */
-  const status = searchParams?.status || "all";
-  const currentPage = Number(searchParams?.page) || 1;
+  const resolvedSearchParams = await searchParams;
+  const status = resolvedSearchParams?.status || "all";
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
 
   /**
    * Fetches the orders data on the server based on the current filters and pagination.

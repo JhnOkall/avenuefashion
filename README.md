@@ -57,7 +57,7 @@ The application is architecturally split into two primary domains using Route Gr
 
 This project utilizes a modern, cohesive set of tools to deliver a high-quality application.
 
-- **Framework**: [Next.js 14](https://nextjs.org/) (with App Router)
+- **Framework**: [Next.js 15](https://nextjs.org/) (with App Router)
 - **Language**: [TypeScript](https://www.typescriptlang.org/)
 - **Database**: [MongoDB](https://www.mongodb.com/) with [Mongoose](https://mongoosejs.com/)
 - **Authentication**: [NextAuth.js (Auth.js v5)](https://next-auth.js.org/)
