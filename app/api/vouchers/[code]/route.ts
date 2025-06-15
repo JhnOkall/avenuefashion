@@ -20,13 +20,17 @@ import { IVoucher } from '@/types';
  */
 export async function GET(
   request: Request,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> }
 ) {
+
+  // Await the params Promise to access the route parameters
+  const resolvedParams = await params;
+
   try {
     // 1. Connect to the database
     await connectDB();
 
-    const { code } = params;
+    const { code } = resolvedParams;
 
     // The Voucher schema automatically uppercases the code, so we match that for lookup.
     const voucherCode = code.toUpperCase();
