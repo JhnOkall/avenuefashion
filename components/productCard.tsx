@@ -78,27 +78,35 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
   return (
     <Card className="group flex h-full flex-col overflow-hidden">
-      <CardHeader className="relative p-0 pt-4">
+      {/* CHANGE #1: Removed all padding (p-0) so the image can touch the top and sides. */}
+      <CardHeader className="relative p-0">
         {product.discount && (
-          <Badge variant="destructive" className="absolute left-4 top-4 z-10">
+          <Badge
+            variant="destructive"
+            className="absolute left-2 top-2 z-10 sm:left-4 sm:top-4"
+          >
             {product.discount}% OFF
           </Badge>
         )}
-        <div className="relative h-56 w-full">
+        <div className="relative h-48 w-full sm:h-56">
+          {" "}
+          {/* Optional: reduced height on mobile */}
           <Link href={`/${product.slug}`}>
+            {/* CHANGE #2: Changed to `object-cover` and removed padding to make the image fill its container. */}
             <Image
               src={product.imageUrl}
               alt={product.name}
               fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-              className="object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
             />
           </Link>
         </div>
       </CardHeader>
-      <CardContent className="flex-1 p-4">
+      {/* CHANGE #3: Reduced padding on mobile (p-2) and restored it for larger screens (sm:p-4). */}
+      <CardContent className="flex-1 p-2 sm:p-4">
         <Link href={`/${product.slug}`}>
-          <h3 className="text-lg font-semibold leading-tight text-foreground hover:underline">
+          <h3 className="text-base font-semibold leading-tight text-foreground hover:underline sm:text-lg">
             {product.name}
           </h3>
         </Link>
@@ -115,10 +123,10 @@ const ProductCard = ({ product }: ProductCardProps) => {
               />
             ))}
           </div>
-          <p className="text-sm font-medium text-foreground">
+          <p className="text-xs font-medium text-foreground sm:text-sm">
             {product.rating.toFixed(1)}
           </p>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs text-muted-foreground sm:text-sm">
             ({product.numReviews})
           </p>
         </div>
@@ -131,23 +139,20 @@ const ProductCard = ({ product }: ProductCardProps) => {
           )}
         </div>
       </CardContent>
-      <CardFooter className="flex items-center justify-between gap-4 p-4 pt-0">
+      {/* CHANGE #4: Applied the same responsive padding logic to the footer. */}
+      <CardFooter className="flex items-center justify-between gap-2 p-2 pt-0 sm:gap-4 sm:p-4 sm:pt-0">
         <div className="flex flex-col">
-          <p className="text-xl font-extrabold leading-tight text-foreground">
+          <p className="text-lg font-extrabold leading-tight text-foreground sm:text-xl">
             {formatPrice(product.price)}
           </p>
           {product.originalPrice && product.originalPrice > product.price && (
-            <p className="text-sm text-muted-foreground line-through">
+            <p className="text-xs text-muted-foreground line-through sm:text-sm">
               {formatPrice(product.originalPrice)}
             </p>
           )}
         </div>
-        {/*
-         * This button is now interactive. It's disabled during the API call
-         * and its text changes to provide feedback to the user.
-         */}
         <Button size="sm" onClick={handleAddToCart} disabled={isPending}>
-          <ShoppingCart className="-ms-2 mr-2 h-5 w-5" />
+          <ShoppingCart className="-ms-1 mr-1 h-4 w-4 sm:-ms-2 sm:mr-2 sm:h-5 sm:w-5" />
           {isPending ? "Adding..." : "Add to cart"}
         </Button>
       </CardFooter>
