@@ -53,7 +53,7 @@ export const AdminSidebar = () => {
             href="/dashboard"
             className="flex items-center gap-2 font-semibold"
           >
-            <Package2 className="h-6 w-6 text-primary" />
+            <Package2 className="h-6 w-6 text-primary-foreground" />
             <span>Avenue Admin</span>
           </Link>
         </div>
@@ -74,9 +74,9 @@ export const AdminSidebar = () => {
                 <Link
                   key={label}
                   href={href}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary ${
+                  className={`flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary-foreground ${
                     isActive
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary/10 text-primary-foreground"
                       : "text-muted-foreground"
                   }`}
                 >

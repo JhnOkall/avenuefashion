@@ -302,7 +302,7 @@ export const UserDetails = ({ user, addresses }: UserDetailsProps) => {
                 className="relative rounded-lg border p-4 pr-16"
               >
                 {addr.isDefault && (
-                  <div className="absolute top-2 right-2 text-xs font-semibold text-primary">
+                  <div className="absolute top-2 right-2 text-xs font-semibold text-primary-foreground">
                     DEFAULT
                   </div>
                 )}
