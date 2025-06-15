@@ -74,11 +74,7 @@ export const OrderTimeline = ({ timeline }: OrderTimelineProps) => {
               <li key={index} className="mb-10 ml-6">
                 <span
                   className={`absolute -left-3.5 flex h-7 w-7 items-center justify-center rounded-full ring-8 ring-background 
-                    ${
-                      isCompleted
-                        ? "bg-primary text-primary-foreground-foreground"
-                        : ""
-                    }
+                    ${isCompleted ? "bg-primary text-primary-foreground" : ""}
                     ${
                       isCurrent
                         ? "bg-blue-200 text-blue-600 dark:bg-blue-900 dark:text-blue-300 animate-pulse"
