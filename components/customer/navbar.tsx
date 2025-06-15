@@ -17,6 +17,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
 import { GlobalSearch } from "./GlobalSearch";
+import Image from "next/image";
 
 /**
  * A helper function to format a numeric price into a localized currency string.
@@ -53,8 +54,7 @@ export default function Navbar() {
           href="/"
           className="hidden items-center gap-2 font-semibold lg:flex"
         >
-          <Package2 className="h-6 w-6 text-primary" />
-          <span>Avenue Fashion</span>
+          <Image src="/logo.svg" alt="Logo" height={6} />
         </Link>
       </div>
 

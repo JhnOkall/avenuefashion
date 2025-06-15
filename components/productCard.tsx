@@ -68,7 +68,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
   };
 
   return (
-    <Card className="group flex h-full flex-col overflow-hidden">
+    <Card className="group flex h-full flex-col overflow-hidden p-0">
       <div className="relative h-48 w-full sm:h-56">
         {product.discount && (
           <Badge
