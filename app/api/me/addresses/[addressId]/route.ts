@@ -33,15 +33,18 @@ const demoteOldDefaultAddress = async (userId: string, newDefaultAddressId: stri
  * @param {string} context.params.addressId - The ID of the address to be updated.
  * @returns {Promise<NextResponse>} A JSON response indicating the result of the operation.
  */
-export async function PATCH(req: Request, { params }: { params: { addressId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ addressId: string }> }) {
     const session = await auth();
     if (!session?.user?.id) {
         return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
-    }
+  }
+  
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
 
     try {
         await connectDB();
-        const { addressId } = params;
+        const { addressId } = resolvedParams;
         const body = await req.json();
 
         if (!mongoose.Types.ObjectId.isValid(addressId)) {
@@ -67,7 +70,7 @@ export async function PATCH(req: Request, { params }: { params: { addressId: str
         return NextResponse.json({ message: 'Address updated successfully', data: updatedAddress }, { status: 200 });
 
     } catch (error) {
-        console.error(`Error updating address ${params.addressId}:`, error);
+        console.error(`Error updating address ${resolvedParams.addressId}:`, error);
         return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
     }
 }
@@ -81,15 +84,18 @@ export async function PATCH(req: Request, { params }: { params: { addressId: str
  * A Next.js API route handler for deleting one of the authenticated user's addresses.
  * This is a protected route that requires a valid user session.
  */
-export async function DELETE(req: Request, { params }: { params: { addressId: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ addressId: string }> }) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
+
+   // Await the params Promise to access the route parameters
+   const resolvedParams = await params;
  
   try {
     await connectDB();
-    const { addressId } = params;
+    const { addressId } = resolvedParams;
 
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
       return NextResponse.json({ message: 'Invalid Address ID' }, { status: 400 });
@@ -121,7 +127,7 @@ export async function DELETE(req: Request, { params }: { params: { addressId: st
 
     return NextResponse.json({ message: 'Address deleted successfully' }, { status: 200 });
   } catch (error) {
-    console.error(`Error deleting address ${params.addressId}:`, error);
+    console.error(`Error deleting address ${resolvedParams.addressId}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }
