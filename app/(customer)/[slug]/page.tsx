@@ -44,14 +44,14 @@ const ProductPageSkeleton = () => (
 
 /**
  * Generates dynamic metadata for the product page based on the product's slug.
- * This is crucial for Search Engine Optimization (SEO), ensuring each product page
- * has a unique and descriptive title, description, and other meta tags.
+ * This is crucial for SEO, ensuring each product page has a unique and descriptive title,
+ * description, and other meta tags. It also provides rich Open Graph and Twitter Card
+ * data for amazing link previews on social media.
  *
  * @param {object} props - The component props, including URL parameters.
  * @param {object} props.params - The dynamic route parameters.
  * @returns {Promise<Metadata>} A promise that resolves to the metadata object.
  */
-// TODO: Enhance this metadata to include Open Graph (og:) and Twitter card tags for better social media sharing previews.
 export async function generateMetadata({
   params,
 }: {
@@ -67,11 +67,45 @@ export async function generateMetadata({
     };
   }
 
+  const pageTitle = `${product.name} | Avenue Fashion`;
+  const pageDescription =
+    product.description[0] || `Shop for ${product.name} at Avenue Fashion.`;
+  // NOTE: For production, this should come from an environment variable.
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL || "https://your-store-domain.com";
+  const pageUrl = `${siteUrl}/products/${product.slug}`;
+
   return {
-    title: `${product.name} | Avenue Fashion`,
-    description:
-      product.description[0] || `Shop for ${product.name} at Avenue Fashion.`,
-    // You can add more specific keywords here if needed.
+    title: pageTitle,
+    description: pageDescription,
+    // Add canonical URL to avoid duplicate content issues
+    alternates: {
+      canonical: pageUrl,
+    },
+    // Open Graph (og:) tags for rich link previews on platforms like Facebook, WhatsApp, etc.
+    openGraph: {
+      title: pageTitle,
+      description: pageDescription,
+      url: pageUrl,
+      siteName: "Avenue Fashion",
+      images: [
+        {
+          url: product.imageUrl, // Must be an absolute URL
+          width: 800, // Recommended for high-quality previews
+          height: 800, // Recommended for high-quality previews
+          alt: product.name,
+        },
+      ],
+      locale: "en_US",
+      type: "website",
+    },
+    // Twitter Card tags for rich link previews on Twitter.
+    twitter: {
+      card: "summary_large_image",
+      title: pageTitle,
+      description: pageDescription,
+      images: [product.imageUrl], // Must be an absolute URL
+    },
   };
 }
 

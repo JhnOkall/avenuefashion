@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Star, Heart, ShoppingCart, Minus, Plus } from "lucide-react";
+import { Star, Heart, ShoppingCart, Minus, Plus, Share } from "lucide-react"; // 1. Import Share icon
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
@@ -149,6 +149,38 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
     });
   };
 
+  /**
+   * 2. Handles sharing the product using the Web Share API with a fallback.
+   */
+  const handleShare = async () => {
+    const shareData = {
+      title: product.name,
+      text: `Check out ${product.name} at Avenue Fashion!`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+      } catch (error) {
+        // User might have cancelled the share. We can ignore this error.
+        console.log("Share was cancelled or failed", error);
+      }
+    } else {
+      // Fallback for browsers that don't support the Web Share API
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        toast.success("Link Copied!", {
+          description: "The product link has been copied to your clipboard.",
+        });
+      } catch (error) {
+        toast.error("Failed to Copy", {
+          description: "Could not copy the link to your clipboard.",
+        });
+      }
+    }
+  };
+
   return (
     <section className="bg-background py-8 md:py-16">
       <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
@@ -205,15 +237,28 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 {isPending ? "Adding..." : "Add to cart"}
               </Button>
             </div>
-            <div className="mt-4">
+
+            {/* 3. Secondary Actions: Favorites and Share */}
+            <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
               <Button
                 variant="outline"
                 size="lg"
                 onClick={handleAddToFavourites}
                 disabled={isPending}
+                className="w-full sm:w-auto"
               >
                 <Heart className="mr-2 h-5 w-5" />
                 Add to favorites
+              </Button>
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={handleShare}
+                className="w-full sm:w-auto"
+                aria-label="Share this product"
+              >
+                <Share className="mr-2 h-5 w-5" />
+                Share
               </Button>
             </div>
 
@@ -225,7 +270,6 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 <p key={index}>{paragraph}</p>
               ))}
             </div>
-            {/* TODO: Add a section to display product features/specifications if available. */}
           </div>
         </div>
       </div>
