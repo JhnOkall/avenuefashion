@@ -125,7 +125,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
         </div>
       </CardContent>
 
-      <CardFooter className="flex items-center justify-between gap-2 p-2 pt-0 sm:gap-4 sm:p-4 sm:pt-0">
+      <CardFooter className="flex flex-col items-start gap-2 p-2 pt-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4 sm:pt-0">
         <div className="flex flex-col">
           <p className="text-lg font-extrabold leading-tight text-foreground sm:text-xl">
             {formatPrice(product.price)}
@@ -136,7 +136,12 @@ const ProductCard = ({ product }: ProductCardProps) => {
             </p>
           )}
         </div>
-        <Button size="sm" onClick={handleAddToCart} disabled={isPending}>
+        <Button
+          size="sm"
+          onClick={handleAddToCart}
+          disabled={isPending}
+          className="w-full sm:w-auto"
+        >
           <ShoppingCart className="-ms-1 mr-1 h-4 w-4 sm:-ms-2 sm:mr-2 sm:h-5 sm:w-5" />
           {isPending ? "Adding..." : "Add to cart"}
         </Button>
