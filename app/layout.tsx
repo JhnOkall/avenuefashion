@@ -26,18 +26,72 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_BASE_URL || "https://new.avenuefashion.co.ke";
+
 /**
- * Defines the default metadata for the application. This is crucial for
- * Search Engine Optimization (SEO) and for how the site appears in browser
- * tabs and when shared on social media. Individual pages can override or
- * extend this metadata.
+ * Defines the default and Open Graph metadata for the application.
+ * This metadata is used for SEO and social sharing, and is applied to all pages.
+ * It can be overridden or extended by individual page metadata.
  */
 export const metadata: Metadata = {
-  title: "Avenue Fashion | Kenya's Premier Online Fashion Store",
+  // Use a template for dynamic page titles
+  title: {
+    template: "%s | Avenue Fashion",
+    default: "Avenue Fashion - Kenya's Premier Online Fashion Store",
+  },
   description:
     "Discover the latest trends in fashion at Avenue Fashion. Shop quality clothes, shoes, jewelry, and accessories for men, women, and kids. Enjoy seamless shopping, secure M-Pesa payments, and fast delivery across Kenya.",
   keywords:
     "Avenue Fashion, Kenya, online fashion, clothes, shoes, jewelry, accessories, M-Pesa payments, fashion store, men's fashion, women's fashion, kid's fashion, shop online Kenya",
+  metadataBase: new URL(siteUrl),
+
+  // --- Comprehensive Open Graph & Twitter Card Metadata ---
+  openGraph: {
+    title: "Avenue Fashion - Kenya's Premier Online Fashion Store",
+    description:
+      "Discover the latest trends in fashion at Avenue Fashion. Shop quality clothes, shoes, jewelry, and accessories for men, women, and kids. Enjoy seamless shopping, secure M-Pesa payments, and fast delivery across Kenya.",
+    url: siteUrl,
+    siteName: "Avenue Fashion",
+    images: [
+      {
+        url: `${siteUrl}/og-image.png`,
+        width: 1200,
+        height: 630,
+        alt: "Avenue Fashion Kenya's Premier Online Fashion Store",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Avenue Fashion - Kenya's Premier Online Fashion Store",
+    description:
+      "Discover the latest trends in fashion at Avenue Fashion. Shop quality clothes, shoes, jewelry, and accessories for men, women, and kids. Enjoy seamless shopping, secure M-Pesa payments, and fast delivery across Kenya.",
+    site: "@avenuefashionke",
+    images: [`${siteUrl}/og-image.png`],
+  },
+
+  // --- Favicons and App Icons ---
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-96x96.png",
+    apple: "/apple-touch-icon.png",
+  },
+
+  // --- Other Important Metadata ---
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 /**
