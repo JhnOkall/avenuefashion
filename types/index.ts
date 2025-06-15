@@ -496,7 +496,7 @@ export interface IOrder extends Document {
   /**
    * The overall status of the order.
    */
-  status: 'Pre-order' | 'Pending' | 'In transit' | 'Confirmed' | 'Cancelled';
+  status: 'Processing' | 'Pending' | 'In transit' | 'Confirmed' |'Delivered' | 'Cancelled';
   /**
    * A chronological log of events related to the order's fulfillment.
    */

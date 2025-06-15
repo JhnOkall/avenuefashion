@@ -112,7 +112,7 @@ const OrderSchema = new Schema<IOrder>({
   // based on the latest event added to the `timeline`.
   status: {
     type: String,
-    enum: ['Pre-order', 'Pending', 'In transit', 'Confirmed', 'Cancelled'],
+    enum: ['Processing', 'Pending', 'In transit', 'Confirmed', 'Delivered', 'Cancelled'],
     default: 'Pending',
     index: true,
   },

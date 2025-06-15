@@ -39,13 +39,15 @@ const formatPrice = (price: number) =>
 // would be to define a custom type that maps status strings to valid Badge variants.
 const getStatusVariant = (status: string) => {
   switch (status) {
-    case "Confirmed":
+    case "Delivered": // Updated status
       return "success";
     case "Cancelled":
       return "destructive";
     case "In transit":
       return "default";
-    default:
+    case "Processing": // Added status
+      return "info"; // Assuming you have an 'info' variant or use another
+    default: // 'Pending'
       return "secondary";
   }
 };
@@ -68,8 +70,11 @@ export const columns = (
     accessorKey: "orderId",
     header: "Order ID",
     cell: ({ row }) => (
-      // TODO: Make this link dynamic, pointing to the specific order details page (e.g., `/admin/orders/${order.orderId}`).
-      <Link href="#" className="font-medium hover:underline">
+      // FIX: Make the link dynamic
+      <Link
+        href={`/admin/orders/${row.original.orderId}`}
+        className="font-medium hover:underline"
+      >
         {row.getValue("orderId")}
       </Link>
     ),
@@ -126,6 +131,7 @@ export const columns = (
     header: "Status",
     cell: ({ row }) => {
       const status = row.getValue("status") as string;
+      // Using `as any` is okay here for simplicity, or create a custom Badge component
       return <Badge variant={getStatusVariant(status) as any}>{status}</Badge>;
     },
   },
@@ -146,10 +152,12 @@ export const columns = (
     id: "actions",
     cell: ({ row }) => {
       const order = row.original;
+      // Define all possible statuses for the admin to choose from
       const orderStatuses: IOrder["status"][] = [
         "Pending",
+        "Processing",
         "In transit",
-        "Confirmed",
+        "Delivered",
         "Cancelled",
       ];
       return (
@@ -162,9 +170,11 @@ export const columns = (
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
-            {/* TODO: Update the href to be a dynamic link to the order details page. */}
+            {/* FIX: Dynamic link to view order details */}
             <DropdownMenuItem asChild>
-              <Link href={`#`}>View Order Details</Link>
+              <Link href={`/admin/orders/${order.orderId}`}>
+                View Order Details
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuSub>

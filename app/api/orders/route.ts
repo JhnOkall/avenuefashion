@@ -93,12 +93,12 @@ export async function POST(req: Request) {
       },
       status: 'Pending',
       timeline: [{
-        title: 'Order Placed',
+        title: 'Order Placed', // This is the title from our ORDER_STAGES
         description: 'Your order has been received and is waiting for processing.',
-        status: 'completed',
+        status: 'current', // FIX: The first event should be 'current', not 'completed'
         timestamp: new Date(),
       }],
-      voucherUsed: validVoucher ? validVoucher._id : undefined, // Optional: Link the voucher
+      voucherUsed: validVoucher ? validVoucher._id : undefined,
     });
 
     await newOrder.save();
