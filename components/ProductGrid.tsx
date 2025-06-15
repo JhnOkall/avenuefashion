@@ -81,7 +81,7 @@ const ProductGrid = ({
     const nextPage = currentPage + 1;
     try {
       // TODO: Pass the current filter and sort state to the fetchProducts call.
-      const response = await fetchProducts({ page: nextPage, limit: 10 }); // Fetches 10 for 5 columns
+      const response = await fetchProducts({ page: nextPage, limit: 8 });
       setProducts((prevProducts) => [...prevProducts, ...response.data]);
       setCurrentPage(nextPage);
     } catch (error) {
@@ -97,8 +97,9 @@ const ProductGrid = ({
    * data fetching to improve perceived performance and prevent layout shifts.
    */
   const ProductGridSkeleton = () => (
-    <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-      {Array.from({ length: 5 }).map((_, i) => (
+    // CHANGE #1: Updated grid classes for the skeleton
+    <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: 4 }).map((_, i) => (
         <div key={`skeleton-${i}`} className="flex flex-col space-y-3">
           <Skeleton className="h-[225px] w-full rounded-xl" />
           <div className="space-y-2">
@@ -112,7 +113,7 @@ const ProductGrid = ({
 
   return (
     <section className="bg-muted/40 py-8 md:py-12">
-      <div className="mx-auto max-w-screen-2xl px-4">
+      <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
         {/* Toolbar for Filtering and Sorting */}
         <div className="mb-4 flex items-center gap-2 md:mb-8">
           <Sheet>
@@ -162,7 +163,7 @@ const ProductGrid = ({
         </div>
 
         {/* Product Grid Display */}
-        <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product) => (
             <ProductCard key={product._id.toString()} product={product} />
           ))}
