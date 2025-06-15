@@ -97,7 +97,8 @@ const ProductGrid = ({
    * data fetching to improve perceived performance and prevent layout shifts.
    */
   const ProductGridSkeleton = () => (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
+    // CHANGE #1: Updated grid classes for the skeleton
+    <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={`skeleton-${i}`} className="flex flex-col space-y-3">
           <Skeleton className="h-[225px] w-full rounded-xl" />
@@ -162,7 +163,7 @@ const ProductGrid = ({
         </div>
 
         {/* Product Grid Display */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
           {products.map((product) => (
             <ProductCard key={product._id.toString()} product={product} />
           ))}
