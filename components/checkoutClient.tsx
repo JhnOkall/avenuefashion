@@ -44,7 +44,11 @@ import {
 // This is necessary when using the CDN script method.
 declare global {
   interface Window {
-    Paystack: any;
+    PaystackPop: {
+      setup(options: any): {
+        openIframe(): void;
+      };
+    };
   }
 }
 
@@ -288,43 +292,32 @@ export const CheckoutClient = ({
    * Initializes and opens the Paystack payment popup using the core InlineJS library.
    */
   const launchPaystackPopup = (order: IOrder) => {
-    if (!window.Paystack) {
-      toast.error("Payment Gateway Error", {
-        description:
-          "Payment service failed to load. Please refresh and try again.",
-      });
-      setIsSubmitting(false);
-      return;
-    }
-
-    const paystack = new window.Paystack();
-    paystack.newTransaction({
+    const handler = window.PaystackPop.setup({
       key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
       email: shippingDetails.email,
       amount: Math.round(orderSummary.total * 100),
       currency: "KES",
-      reference: order.orderId,
+      ref: order.orderId,
       subaccount: "ACCT_509uwma1ojlhkpg",
       metadata: {
         project_id: "avenue_fashion",
         orderId: order.orderId,
         customerName: shippingDetails.name,
       },
-      onSuccess: (transaction: any) => {
-        router.push(`/success?orderId=${transaction.reference}`);
+      callback: function (response: any) {
+        // This is called 'callback' in v2, not 'onSuccess'
+        router.push(`/success?orderId=${response.reference}`);
       },
-      onCancel: () => {
+      onClose: function () {
+        // This is called 'onClose' in v2, not 'onCancel'
         toast.info("Payment Canceled", {
           description:
             "Your order is saved. You can complete payment from your account.",
         });
         setIsSubmitting(false);
       },
-      onError: (error: any) => {
-        toast.error("Payment Error", { description: error.message });
-        setIsSubmitting(false);
-      },
     });
+    handler.openIframe();
   };
 
   return (
