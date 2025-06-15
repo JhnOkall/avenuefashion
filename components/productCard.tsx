@@ -8,12 +8,7 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-} from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { IProduct } from "@/types";
 import { addToCart } from "@/lib/data";
 
@@ -22,7 +17,6 @@ import { addToCart } from "@/lib/data";
  * @param {number} price - The price to format.
  * @returns {string} The formatted currency string (e.g., "Ksh 1,234.56").
  */
-// TODO: Relocate this helper to a shared `utils/formatters.ts` file to ensure consistency and reusability across the application.
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat("en-KE", {
     style: "currency",
@@ -52,18 +46,15 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
   /**
    * Handles adding the product to the shopping cart.
-   * It calls the server action, provides user feedback, and manages loading states.
    */
   const handleAddToCart = () => {
     startTransition(async () => {
       try {
-        // Add one unit of the product to the cart.
         await addToCart(product._id.toString(), 1);
         toast.success("Added to Cart", {
           description: `${product.name} has been added to your cart.`,
           action: {
             label: "View Cart",
-            // Navigate the user to the cart page if they click the action.
             onClick: () => (window.location.href = "/cart"),
           },
         });
@@ -78,8 +69,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
 
   return (
     <Card className="group flex h-full flex-col overflow-hidden">
-      {/* CHANGE #1: Removed all padding (p-0) so the image can touch the top and sides. */}
-      <CardHeader className="relative p-0">
+      <div className="relative h-48 w-full sm:h-56">
         {product.discount && (
           <Badge
             variant="destructive"
@@ -88,25 +78,20 @@ const ProductCard = ({ product }: ProductCardProps) => {
             {product.discount}% OFF
           </Badge>
         )}
-        <div className="relative h-48 w-full sm:h-56">
-          {" "}
-          {/* Optional: reduced height on mobile */}
-          <Link href={`/${product.slug}`}>
-            {/* CHANGE #2: Changed to `object-cover` and removed padding to make the image fill its container. */}
-            <Image
-              src={product.imageUrl}
-              alt={product.name}
-              fill
-              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-              className="object-cover transition-transform duration-300 group-hover:scale-105"
-            />
-          </Link>
-        </div>
-      </CardHeader>
-      {/* CHANGE #3: Reduced padding on mobile (p-2) and restored it for larger screens (sm:p-4). */}
+        <Link href={`/${product.slug}`}>
+          <Image
+            src={product.imageUrl}
+            alt={product.name}
+            fill
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        </Link>
+      </div>
+
       <CardContent className="flex-1 p-2 sm:p-4">
         <Link href={`/${product.slug}`}>
-          <h3 className="text-base font-semibold leading-tight text-foreground hover:underline sm:text-lg">
+          <h3 className="truncate text-base font-semibold leading-tight text-foreground hover:underline sm:text-lg">
             {product.name}
           </h3>
         </Link>
@@ -139,7 +124,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
           )}
         </div>
       </CardContent>
-      {/* CHANGE #4: Applied the same responsive padding logic to the footer. */}
+
       <CardFooter className="flex items-center justify-between gap-2 p-2 pt-0 sm:gap-4 sm:p-4 sm:pt-0">
         <div className="flex flex-col">
           <p className="text-lg font-extrabold leading-tight text-foreground sm:text-xl">
