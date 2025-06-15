@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/contexts/CartContext";
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
+import Script from "next/script";
 
 /**
  * Initializes the Geist Sans font for the application.
@@ -83,6 +84,10 @@ export default async function RootLayout({
             <Toaster />
           </CartProvider>
         </SessionProvider>
+        <Script
+          src="https://js.paystack.co/v2/inline.js"
+          strategy="lazyOnload"
+        />
       </body>
     </html>
   );

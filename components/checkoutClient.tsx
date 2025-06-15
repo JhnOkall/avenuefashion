@@ -23,14 +23,30 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { IAddress, ICart, ICity, ICountry, ICounty, IVoucher } from "@/types";
 import {
+  IAddress,
+  ICart,
+  ICity,
+  ICountry,
+  ICounty,
+  IVoucher,
+  IOrder,
+} from "@/types";
+import {
+  createAddress,
   fetchCitiesByCounty,
   fetchCountiesByCountry,
   placeOrder,
   validateVoucher,
-  createAddress,
 } from "@/lib/data";
+
+// This declaration tells TypeScript that the 'Paystack' object will be available on the global 'window' object.
+// This is necessary when using the CDN script method.
+declare global {
+  interface Window {
+    Paystack: any;
+  }
+}
 
 /**
  * Formats a numeric price into a localized currency string.
@@ -40,13 +56,7 @@ const formatPrice = (price: number) =>
     price
   );
 
-type UserSession = {
-  name?: string | null;
-  email?: string | null;
-  image?: string | null;
-  id?: string;
-};
-
+type UserSession = { name?: string | null; email?: string | null; id?: string };
 interface CheckoutClientProps {
   user: UserSession;
   cart: ICart;
@@ -64,18 +74,18 @@ export const CheckoutClient = ({
 
   // State to manage delivery address choice: 'use-saved' or 'use-new'
   const [deliveryOption, setDeliveryOption] = useState("use-saved");
-
   const [shippingDetails, setShippingDetails] = useState({
     name: user.name ?? "",
     email: user.email ?? "",
     phone: "",
     streetAddress: "",
   });
-
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
     null
   );
-  const [paymentMethod, setPaymentMethod] = useState("credit-card");
+
+  // ** CHANGE: Default to 'paystack' and update payment method options
+  const [paymentMethod, setPaymentMethod] = useState("paystack");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [selectedCountryId, setSelectedCountryId] = useState("");
@@ -99,13 +109,11 @@ export const CheckoutClient = ({
       phone: address.phone,
       streetAddress: address.streetAddress,
     });
-
     setIsLoadingCounties(true);
     setIsLoadingCities(true);
     const countryId = (address.country as ICountry)._id.toString();
     const countyId = (address.county as ICounty)._id.toString();
     const cityId = (address.city as ICity)._id.toString();
-
     try {
       setSelectedCountryId(countryId);
       const fetchedCounties = await fetchCountiesByCountry(countryId);
@@ -155,7 +163,6 @@ export const CheckoutClient = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setShippingDetails({ ...shippingDetails, [e.target.id]: e.target.value });
   };
-
   const onCountryChange = async (countryId: string) => {
     setSelectedCountryId(countryId);
     setSelectedCountyId("");
@@ -172,7 +179,6 @@ export const CheckoutClient = ({
       setIsLoadingCounties(false);
     }
   };
-
   const onCountyChange = async (countyId: string) => {
     setSelectedCountyId(countyId);
     setSelectedCityId("");
@@ -187,7 +193,6 @@ export const CheckoutClient = ({
       setIsLoadingCities(false);
     }
   };
-
   const orderSummary = useMemo(() => {
     const subtotal = cart.items.reduce(
       (acc, item) => acc + item.price * item.quantity,
@@ -206,7 +211,6 @@ export const CheckoutClient = ({
     const total = Math.max(0, subtotal + shippingFee + tax - discount);
     return { subtotal, shippingFee, tax, discount, total };
   }, [cart, cities, selectedCityId, appliedVoucher]);
-
   const handleApplyVoucher = async () => {
     if (!voucherCode.trim())
       return toast.warning("Please enter a voucher code.");
@@ -229,17 +233,18 @@ export const CheckoutClient = ({
     toast.info("Voucher removed.");
   };
 
-  const handlePlaceOrder = async (e: React.FormEvent) => {
-    e.preventDefault();
+  /**
+   * Main checkout handler. This is called when the final button is clicked.
+   * It handles all validations and then branches based on payment method.
+   */
+  const handleCheckout = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent default form submission
     setIsSubmitting(true);
-    let finalAddressId = selectedAddressId;
-
     try {
+      let finalAddressId = selectedAddressId;
       if (deliveryOption === "use-new") {
         if (!shippingDetails.streetAddress.trim() || !selectedCityId) {
-          toast.warning("Validation Error", {
-            description: "Please complete all new address fields.",
-          });
+          toast.warning("Please complete all new address fields.");
           setIsSubmitting(false);
           return;
         }
@@ -256,33 +261,76 @@ export const CheckoutClient = ({
       }
 
       if (!finalAddressId) {
-        toast.warning("Validation Error", {
-          description: "Please select a delivery address.",
-        });
+        toast.warning("Please select a delivery address.");
         setIsSubmitting(false);
         return;
       }
 
       const newOrder = await placeOrder({
         addressId: finalAddressId,
-        paymentMethod,
-        voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
+        paymentMethod: paymentMethod,
+        voucherCode: appliedVoucher?.code,
       });
 
-      router.push(`/success?orderId=${newOrder.orderId}`);
+      if (paymentMethod === "paystack") {
+        launchPaystackPopup(newOrder);
+      } else {
+        // 'on-delivery'
+        router.push(`/success?orderId=${newOrder.orderId}`);
+      }
     } catch (error: any) {
-      toast.error("Order Failed", {
-        description: error.message || "An unexpected error occurred.",
-      });
-    } finally {
+      toast.error("Order Failed", { description: error.message });
       setIsSubmitting(false);
     }
+  };
+
+  /**
+   * Initializes and opens the Paystack payment popup using the core InlineJS library.
+   */
+  const launchPaystackPopup = (order: IOrder) => {
+    if (!window.Paystack) {
+      toast.error("Payment Gateway Error", {
+        description:
+          "Payment service failed to load. Please refresh and try again.",
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const paystack = new window.Paystack();
+    paystack.newTransaction({
+      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
+      email: shippingDetails.email,
+      amount: Math.round(orderSummary.total * 100),
+      currency: "KES",
+      reference: order.orderId,
+      subaccount: "ACCT_509uwma1ojlhkpg",
+      metadata: {
+        project_id: "avenue_fashion",
+        orderId: order.orderId,
+        customerName: shippingDetails.name,
+      },
+      onSuccess: (transaction: any) => {
+        router.push(`/success?orderId=${transaction.reference}`);
+      },
+      onCancel: () => {
+        toast.info("Payment Canceled", {
+          description:
+            "Your order is saved. You can complete payment from your account.",
+        });
+        setIsSubmitting(false);
+      },
+      onError: (error: any) => {
+        toast.error("Payment Error", { description: error.message });
+        setIsSubmitting(false);
+      },
+    });
   };
 
   return (
     <section className="bg-background py-8 md:py-16">
       <form
-        onSubmit={handlePlaceOrder}
+        onSubmit={handleCheckout}
         className="mx-auto max-w-screen-xl px-4 2xl:px-0"
       >
         <div className="lg:flex lg:items-start lg:gap-12 xl:gap-16">
@@ -476,28 +524,27 @@ export const CheckoutClient = ({
               </CardContent>
             </Card>
 
-            {/* Payment Method Section (unchanged) */}
             <Card>
               <CardHeader>
                 <CardTitle>Payment Method</CardTitle>
               </CardHeader>
               <CardContent>
                 <RadioGroup
-                  defaultValue="credit-card"
+                  defaultValue="paystack"
                   onValueChange={setPaymentMethod}
-                  className="grid grid-cols-1 gap-4 md:grid-cols-3"
+                  className="grid grid-cols-1 gap-4 md:grid-cols-2"
                 >
                   <Label
-                    htmlFor="credit-card"
+                    htmlFor="paystack"
                     className="flex cursor-pointer items-start rounded-md border p-4 has-[[data-state=checked]]:border-primary"
                   >
                     <RadioGroupItem
-                      value="credit-card"
-                      id="credit-card"
+                      value="paystack"
+                      id="paystack"
                       className="mr-4"
                     />
                     <div className="text-sm">
-                      <p>Credit Card</p>
+                      <p>Pay with Card / M-PESA</p>
                     </div>
                   </Label>
                   <Label
@@ -518,7 +565,6 @@ export const CheckoutClient = ({
             </Card>
           </div>
 
-          {/* Order Summary Section (unchanged) */}
           <div className="mt-6 w-full space-y-6 lg:mt-0 lg:max-w-xs xl:max-w-md">
             <Card className="w-full">
               <CardHeader>
@@ -607,7 +653,11 @@ export const CheckoutClient = ({
                   {isSubmitting && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  {isSubmitting ? "Placing Order..." : "Place Order"}
+                  {isSubmitting
+                    ? "Processing..."
+                    : paymentMethod === "paystack"
+                    ? `Pay ${formatPrice(orderSummary.total)}`
+                    : "Place Order on Delivery"}
                 </Button>
               </CardFooter>
             </Card>
