@@ -3,14 +3,13 @@ import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import Order from '@/models/Order';
 import Cart from '@/models/Cart';
-import City from '@/models/City';
 import Address from '@/models/Address'; 
 import Voucher from '@/models/Voucher'; 
 import mongoose from 'mongoose';
-import { ICartItem, ICity, IVoucher } from '@/types';
+import { ICity, IVoucher, ICartItem } from '@/types';
 
 /**
- * A Next.js API route handler for creating a new order from the user's current cart.
+ * A Next.js API route handler for creating a new order.
  * This is a protected route that requires user authentication.
  *
  * @param {Request} req - The incoming POST request object.
@@ -25,7 +24,6 @@ export async function POST(req: Request) {
   try {
     await connectDB();
 
-    // MODIFICATION: Expect addressId and optional voucherCode instead of old payload
     const { addressId, paymentMethod, voucherCode } = await req.json();
 
     // --- Server-Side Validation ---
@@ -33,7 +31,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Address and payment method are required.' }, { status: 400 });
     }
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
-      return NextResponse.json({ message: 'Invalid Address ID provided.' }, { status: 400 });
+      return NextResponse.json({ message: `Invalid Address ID format: ${addressId}` }, { status: 400 });
     }
 
     // --- Fetch Dependencies ---
@@ -42,41 +40,34 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: 'Your cart is empty. Cannot place order.' }, { status: 400 });
     }
 
-    // MODIFICATION: Fetch the full address, and populate its 'city' field to get deliveryFee
-    const address = await Address.findById(addressId).populate('city');
-    if (!address || !address.city) {
-      return NextResponse.json({ message: 'Selected delivery address is not valid.' }, { status: 404 });
+    const address = await Address.findOne({ _id: addressId, user: session.user.id }).populate('city');
+    if (!address) {
+      return NextResponse.json({ message: 'The selected delivery address could not be found for your account.' }, { status: 404 });
+    }
+    if (!address.city) {
+      return NextResponse.json({ message: 'Address data is incomplete. Missing city information.' }, { status: 400 });
     }
 
     // --- Backend Price & Voucher Calculation ---
     const subtotal = cart.items.reduce((acc: number, item: ICartItem) => acc + item.price * item.quantity, 0);
     const shipping = (address.city as ICity).deliveryFee;
-    const tax = subtotal * 0.16;
+    const tax = subtotal * 0.16; // Example: 16% VAT
     let discount = 0;
     let validVoucher: IVoucher | null = null;
 
-    // MODIFICATION: Server-side voucher validation
     if (voucherCode) {
       validVoucher = await Voucher.findOne({ code: voucherCode.toUpperCase() });
       if (!validVoucher || !validVoucher.isActive || (validVoucher.expiresAt && new Date() > new Date(validVoucher.expiresAt))) {
-        // Voucher is invalid, expired, or inactive. Fail the request.
         return NextResponse.json({ message: 'The provided voucher code is invalid or expired.' }, { status: 400 });
       }
-
-      // Calculate discount based on the validated voucher
-      if (validVoucher.discountType === 'percentage') {
-        discount = subtotal * (validVoucher.discountValue / 100);
-      } else {
-        discount = validVoucher.discountValue;
-      }
+      discount = validVoucher.discountType === 'percentage' ? subtotal * (validVoucher.discountValue / 100) : validVoucher.discountValue;
     }
 
     const total = Math.max(0, subtotal + shipping + tax - discount);
 
-    // MODIFICATION: Create a snapshot of the shipping details from the fetched address
     const shippingDetailsSnapshot = {
       name: address.recipientName,
-      email: session.user.email, // Use the session email for the order record
+      email: session.user.email,
       phone: address.phone,
       address: `${address.streetAddress}, ${(address.city as ICity).name}`,
     };
@@ -89,13 +80,15 @@ export async function POST(req: Request) {
       shippingDetails: shippingDetailsSnapshot,
       payment: {
         method: paymentMethod,
+        // For 'on-delivery', we can consider the payment 'pending' until cash is received.
+        // For 'paystack', it's 'pending' until the webhook confirms it.
         status: 'pending',
       },
       status: 'Pending',
       timeline: [{
-        title: 'Order Placed', // This is the title from our ORDER_STAGES
+        title: 'Order Placed',
         description: 'Your order has been received and is waiting for processing.',
-        status: 'current', // FIX: The first event should be 'current', not 'completed'
+        status: 'current',
         timestamp: new Date(),
       }],
       voucherUsed: validVoucher ? validVoucher._id : undefined,
@@ -103,9 +96,14 @@ export async function POST(req: Request) {
 
     await newOrder.save();
 
-    // --- Post-Order Actions ---
-    cart.items = [];
-    await cart.save();
+    // --- Post-Order Actions: Conditional Cart Clearing ---
+    if (paymentMethod === 'on-delivery') {
+      // For "Pay on Delivery", the user flow is complete. Clear the cart now.
+      cart.items = [];
+      await cart.save();
+      console.log(`Cart cleared for on-delivery order: ${newOrder.orderId}`);
+    }
+    // For "paystack", we do NOT clear the cart here. This will be handled by the webhook.
 
     return NextResponse.json({
       message: 'Order placed successfully.',

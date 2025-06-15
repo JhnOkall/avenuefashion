@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import crypto from 'crypto';
 import connectDB from '@/lib/db';
 import Order from '@/models/Order';
+import Cart from '@/models/Cart';
 import { IOrder } from '@/types';
 
 /**
@@ -32,9 +33,8 @@ export async function POST(req: Request) {
 
   // Step 2: Process the 'charge.success' event
   if (event.event === 'charge.success') {
-    const { reference, status, metadata } = event.data;
+    const { status, metadata } = event.data;
 
-    // We only care about successfully completed payments
     if (status === 'success') {
       try {
         await connectDB();
@@ -51,16 +51,15 @@ export async function POST(req: Request) {
           return NextResponse.json({ status: 'error', message: 'Order not found' }, { status: 404 });
         }
         
-        // Idempotency Check: Prevent reprocessing if payment is already marked as completed
         if (order.payment.status === 'completed') {
             console.log(`Payment for order ${orderId} has already been processed. Acknowledging.`);
             return NextResponse.json({ status: 'ok' });
         }
 
-        // Step 3: Update the order document in the database
+        // Step 3: Update the order document
         order.payment.status = 'completed';
-        order.payment.transactionId = reference; // Store the Paystack transaction ID
-        order.status = 'Processing'; // Advance the overall order status
+        order.payment.transactionId = event.data.reference;
+        order.status = 'Processing';
 
         // Update the timeline
         const placedEvent = order.timeline.find(e => e.title === 'Order Placed');
@@ -68,7 +67,6 @@ export async function POST(req: Request) {
             placedEvent.status = 'completed';
         }
         
-        // Add the next stage in the timeline
         order.timeline.push({
             title: 'Processing',
             description: 'We are preparing your items for shipment at the warehouse.',
@@ -77,6 +75,14 @@ export async function POST(req: Request) {
         });
         
         await order.save();
+
+        // Step 4: Clear the user's cart AFTER successful payment
+        const userCart = await Cart.findOne({ user: order.user });
+        if (userCart) {
+          userCart.items = [];
+          await userCart.save();
+          console.log(`Cart cleared for user ${order.user} after successful payment for order ${orderId}.`);
+        }
 
         console.log(`Successfully processed payment and updated order ${orderId}.`);
 
@@ -87,6 +93,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Step 4: Acknowledge receipt of the event
+  // Step 5: Acknowledge receipt of the event
   return NextResponse.json({ status: 'ok' });
 }
