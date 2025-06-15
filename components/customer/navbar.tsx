@@ -54,7 +54,7 @@ export default function Navbar() {
           href="/"
           className="hidden items-center gap-2 font-semibold lg:flex"
         >
-          <Image src="/logo.svg" alt="Logo" width={100} height={42} />
+          <Image src="/logo.svg" alt="Logo" width={100} height={40} />
         </Link>
       </div>
 
