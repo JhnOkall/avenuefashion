@@ -657,6 +657,53 @@ export const validateVoucher = async (code: string): Promise<IVoucher> => {
 };
 
 /**
+ * Updates an existing address for the current authenticated user.
+ * @param addressId - The unique identifier of the address to update.
+ * @param data - An object containing the fields to update.
+ * @returns A promise that resolves to the updated address object.
+ * @throws Will throw an error if the API request fails.
+ */
+export const updateAddress = async (addressId: string, data: Partial<IAddress>): Promise<IAddress> => {
+    try {
+      const authOptions = await getAuthFetchOptions({
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      });
+      const response = await fetch(`${API_BASE_URL}/me/addresses/${addressId}`, authOptions);
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to update address.');
+      }
+      return result.data;
+    } catch (error) {
+      console.error(`Error updating address ${addressId}:`, error);
+      throw error;
+    }
+  };
+  
+  /**
+   * Deletes an address for the current authenticated user.
+   * @param addressId - The unique identifier of the address to delete.
+   * @returns A promise that resolves when the deletion is successful.
+   * @throws Will throw an error if the API request fails.
+   */
+  export const deleteAddress = async (addressId: string): Promise<void> => {
+    try {
+      const authOptions = await getAuthFetchOptions({
+        method: 'DELETE',
+      });
+      const response = await fetch(`${API_BASE_URL}/me/addresses/${addressId}`, authOptions);
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to delete address.');
+      }
+    } catch (error) {
+      console.error(`Error deleting address ${addressId}:`, error);
+      throw error;
+    }
+  };
+
+/**
  * Creates a new address for the current authenticated user.
  * This function is typically called during checkout when a new address is entered.
  * @param addressData The details of the new address.

@@ -124,14 +124,13 @@ const RecentOrders = ({
     {orders.map((order) => {
       // Safely access user details, as the `user` field might not be fully populated.
       const user =
-        "name" in order.user ? order.user : { name: "Unknown", email: "" };
+        "name" in order.user
+          ? order.user
+          : { name: "Unknown", email: "", image: undefined };
       return (
         <div key={order._id.toString()} className="flex items-center">
           <Avatar className="h-9 w-9">
-            <AvatarImage
-              src={"image" in user ? user.image : undefined}
-              alt="Avatar"
-            />
+            <AvatarImage src={user.image ?? undefined} alt="Avatar" />
             <AvatarFallback>
               {user.name?.charAt(0).toUpperCase()}
             </AvatarFallback>

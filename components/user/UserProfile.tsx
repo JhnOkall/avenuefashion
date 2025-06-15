@@ -87,13 +87,6 @@ export const UserProfile = ({
   reviewCount,
 }: UserProfileProps) => {
   /**
-   * Determines the user's default address for display. Falls back to the first
-   * address in the list if no default is explicitly set.
-   */
-  const defaultAddress =
-    addresses.find((addr) => addr.isDefault) || addresses[0] || null;
-
-  /**
    * An array defining the data for the statistical overview cards.
    */
   // TODO: The 'Favorite products' and 'Product returns' values are hardcoded. These should be made dynamic by fetching the actual counts from the backend.
@@ -119,7 +112,7 @@ export const UserProfile = ({
         </div>
 
         {/* Child Components for Detailed Information */}
-        <UserDetails user={user} defaultAddress={defaultAddress} />
+        <UserDetails user={user} addresses={addresses} />
         <LatestOrders orders={orders} />
       </div>
     </section>

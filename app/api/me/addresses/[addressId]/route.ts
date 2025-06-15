@@ -2,65 +2,126 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
 import Address from '@/models/Address';
+import User from '@/models/User';
 import mongoose from 'mongoose';
+
+/**
+ * A helper function to ensure only one address is the default.
+ * If a new address is set as default, this function will find any other
+ * default address for the user and set its `isDefault` flag to false.
+ * 
+ * @param userId The ID of the user.
+ * @param newDefaultAddressId The ID of the address being set as the new default.
+ */
+const demoteOldDefaultAddress = async (userId: string, newDefaultAddressId: string) => {
+  await Address.updateMany(
+    { user: userId, _id: { $ne: newDefaultAddressId }, isDefault: true },
+    { $set: { isDefault: false } }
+  );
+};
+
+// =================================================================
+// PATCH - Update an Address
+// =================================================================
+
+/**
+ * A Next.js API route handler for updating one of the authenticated user's addresses.
+ * This is a protected route.
+ *
+ * @param {Request} req - The incoming PATCH request object.
+ * @param {object} context - The context object containing route parameters.
+ * @param {string} context.params.addressId - The ID of the address to be updated.
+ * @returns {Promise<NextResponse>} A JSON response indicating the result of the operation.
+ */
+export async function PATCH(req: Request, { params }: { params: { addressId: string } }) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    try {
+        await connectDB();
+        const { addressId } = params;
+        const body = await req.json();
+
+        if (!mongoose.Types.ObjectId.isValid(addressId)) {
+            return NextResponse.json({ message: 'Invalid Address ID' }, { status: 400 });
+        }
+
+        const address = await Address.findById(addressId);
+        if (!address) {
+            return NextResponse.json({ message: 'Address not found' }, { status: 404 });
+        }
+        if (address.user.toString() !== session.user.id) {
+            return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
+        }
+
+        // If the user is setting this address as the new default, demote the old one.
+        if (body.isDefault === true) {
+            await demoteOldDefaultAddress(session.user.id, addressId);
+        }
+
+        // Update the address document with the provided data.
+        const updatedAddress = await Address.findByIdAndUpdate(addressId, body, { new: true, runValidators: true }).populate('country county city');
+
+        return NextResponse.json({ message: 'Address updated successfully', data: updatedAddress }, { status: 200 });
+
+    } catch (error) {
+        console.error(`Error updating address ${params.addressId}:`, error);
+        return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
+    }
+}
+
+
+// =================================================================
+// DELETE - Delete an Address
+// =================================================================
 
 /**
  * A Next.js API route handler for deleting one of the authenticated user's addresses.
  * This is a protected route that requires a valid user session.
- *
- * @param {Request} req - The incoming DELETE request object.
- * @param {object} context - The context object containing route parameters.
- * @param {object} context.params - The parameters from the dynamic route segment.
- * @param {string} context.params.addressId - The ID of the address to be deleted.
- * @returns {Promise<NextResponse>} A JSON response indicating the result of the operation.
  */
-// TODO: When an address is deleted, consider if it was the default address. If so, logic should be added to promote another address to be the new default.
-export async function DELETE(req: Request, { params }: { params: Promise<{ addressId: string }> }) {
-  /**
-   * Fetches the current user's session. If no session exists, the user is unauthorized.
-   */
+export async function DELETE(req: Request, { params }: { params: { addressId: string } }) {
   const session = await auth();
   if (!session?.user?.id) {
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
-
-   // Await the params Promise to access the route parameters
-   const resolvedParams = await params;
-
+ 
   try {
-    // Establishes a connection to the MongoDB database.
     await connectDB();
-    const { addressId } = resolvedParams;
+    const { addressId } = params;
 
-    // Validates that the provided addressId is a valid MongoDB ObjectId format.
     if (!mongoose.Types.ObjectId.isValid(addressId)) {
       return NextResponse.json({ message: 'Invalid Address ID' }, { status: 400 });
     }
 
-    // Finds the address document to be deleted.
-    const address = await Address.findById(addressId);
-
-    // If no address is found with the provided ID, return a 404 Not Found response.
-    if (!address) {
+    const addressToDelete = await Address.findById(addressId);
+    if (!addressToDelete) {
       return NextResponse.json({ message: 'Address not found' }, { status: 404 });
     }
-
-    /**
-     * A critical security check to ensure the address being deleted belongs to the
-     * currently authenticated user. This prevents one user from deleting another's address.
-     */
-    if (address.user.toString() !== session.user.id) {
+    if (addressToDelete.user.toString() !== session.user.id) {
       return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
     }
 
-    // If all checks pass, delete the address document.
+    // Perform deletion
     await Address.findByIdAndDelete(addressId);
+    
+    // Also remove the address reference from the User document's addresses array
+    await User.findByIdAndUpdate(session.user.id, { $pull: { addresses: addressId } });
 
-    // Return a success response.
+    // --- Auto-promotion logic (Completing the TODO) ---
+    // If the deleted address was the default one, promote the most recently updated remaining address to be the new default.
+    if (addressToDelete.isDefault) {
+      const nextAddress = await Address.findOneAndUpdate(
+        { user: session.user.id }, // Find any remaining address for this user
+        { $set: { isDefault: true } }, // Set it as default
+        { new: true, sort: { updatedAt: -1 } } // Sort by most recently updated to pick a consistent one
+      );
+    }
+
     return NextResponse.json({ message: 'Address deleted successfully' }, { status: 200 });
   } catch (error) {
-    // TODO: Implement a more robust logging service for production.
-    console.error(`Error deleting address ${resolvedParams.addressId}:`, error);
+    console.error(`Error deleting address ${params.addressId}:`, error);
     return NextResponse.json({ message: 'Internal Server Error' }, { status: 500 });
   }
 }

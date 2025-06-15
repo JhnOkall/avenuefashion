@@ -12,151 +12,25 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Pencil, Truck, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Pencil, Truck, Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { IAddress } from "@/types";
-import { updateMyDetails } from "@/lib/data";
+import { updateMyDetails, updateAddress, deleteAddress } from "@/lib/data";
 
-// =================================================================
-// SUB-COMPONENT: Edit Dialog
-// =================================================================
-
-interface EditAccountDialogProps {
-  isOpen: boolean;
-  onClose: () => void;
-  user: {
-    name?: string | null;
-  };
-  defaultAddress: IAddress | null;
-}
-
-/**
- * A dialog component for editing user account details like name and phone number.
- */
-const EditAccountDialog = ({
-  isOpen,
-  onClose,
-  user,
-  defaultAddress,
-}: EditAccountDialogProps) => {
-  const router = useRouter();
-  const [formData, setFormData] = useState({ name: "", phone: "" });
-  const [isPending, startTransition] = useTransition();
-
-  // Pre-fill the form with current user data when the dialog opens.
-  useEffect(() => {
-    if (isOpen) {
-      setFormData({
-        name: user.name ?? "",
-        phone: defaultAddress?.phone ?? "",
-      });
-    }
-  }, [isOpen, user, defaultAddress]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({ ...formData, [e.target.id]: e.target.value });
-  };
-
-  const handleSubmit = () => {
-    startTransition(async () => {
-      try {
-        await updateMyDetails(formData);
-        toast.success("Details Updated", {
-          description:
-            "Your account information has been updated successfully.",
-        });
-        onClose();
-        router.refresh(); // Refresh server components to show updated data
-      } catch (error: any) {
-        toast.error("Update Failed", {
-          description:
-            error.message || "There was a problem updating your details.",
-        });
-      }
-    });
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit Your Details</DialogTitle>
-          <DialogDescription>
-            Make changes to your personal and contact information here. Click
-            save when you're done.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              value={formData.name}
-              onChange={handleChange}
-              disabled={isPending}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="phone">Default Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              value={formData.phone}
-              onChange={handleChange}
-              disabled={isPending || !defaultAddress}
-              placeholder={
-                !defaultAddress
-                  ? "Set a default address to add a phone number"
-                  : ""
-              }
-            />
-          </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isPending}>
-            Cancel
-          </Button>
-          <Button onClick={handleSubmit} disabled={isPending}>
-            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isPending ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-// =================================================================
-// MAIN COMPONENT
-// =================================================================
-
-/**
- * Defines the props required by the UserDetails component.
- */
-interface UserDetailsProps {
-  /**
-   * The current user's session information.
-   */
-  user: {
-    name?: string | null;
-    email?: string | null;
-    image?: string | null;
-  };
-  /**
-   * The user's default address object, or null if none is set.
-   */
-  defaultAddress: IAddress | null;
-}
-
-/**
- * A helper function to format a structured address object into a single,
- * human-readable string.
- */
-// TODO: Relocate this helper to a shared `utils/formatters.ts`.
-const formatAddress = (address: IAddress | null): string => {
-  if (!address) return "No default address set.";
+const formatAddressString = (address: IAddress): string => {
   const cityName =
     typeof address.city === "object" && "name" in address.city
       ? address.city.name
@@ -165,82 +39,349 @@ const formatAddress = (address: IAddress | null): string => {
     typeof address.county === "object" && "name" in address.county
       ? address.county.name
       : "";
-  const countryName =
-    typeof address.country === "object" && "name" in address.country
-      ? address.country.name
-      : "";
-  return [address.streetAddress, cityName, countyName, countryName]
+  return [address.streetAddress, cityName, countyName]
     .filter(Boolean)
     .join(", ");
 };
 
-/**
- * A client component that displays a summary of the user's personal details
- * and provides an entry point to edit them.
- */
-export const UserDetails = ({ user, defaultAddress }: UserDetailsProps) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+// =================================================================
+// SUB-COMPONENT: Edit Account Dialog
+// =================================================================
+
+interface EditAccountDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  user: { name?: string | null };
+}
+
+const EditAccountDialog = ({
+  isOpen,
+  onClose,
+  user,
+}: EditAccountDialogProps) => {
+  const router = useRouter();
+  const [name, setName] = useState(user.name ?? "");
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (isOpen) setName(user.name ?? "");
+  }, [isOpen, user]);
+
+  const handleSubmit = () => {
+    startTransition(async () => {
+      try {
+        await updateMyDetails({ name });
+        toast.success("Details Updated");
+        onClose();
+        router.refresh();
+      } catch (error: any) {
+        toast.error("Update Failed", { description: error.message });
+      }
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Your Name</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              disabled={isPending}
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{" "}
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// =================================================================
+// SUB-COMPONENT: Edit Address Dialog
+// =================================================================
+
+interface EditAddressDialogProps {
+  address: IAddress | null;
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const EditAddressDialog = ({
+  address,
+  isOpen,
+  onClose,
+}: EditAddressDialogProps) => {
+  const router = useRouter();
+  const [formData, setFormData] = useState({
+    streetAddress: "",
+    phone: "",
+    isDefault: false,
+  });
+  const [isPending, startTransition] = useTransition();
+
+  useEffect(() => {
+    if (isOpen && address) {
+      setFormData({
+        streetAddress: address.streetAddress,
+        phone: address.phone,
+        isDefault: address.isDefault,
+      });
+    }
+  }, [isOpen, address]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.id]: e.target.value });
+  };
+
+  const handleSwitchChange = (checked: boolean) => {
+    setFormData({ ...formData, isDefault: checked });
+  };
+
+  const handleSubmit = () => {
+    if (!address) return;
+    startTransition(async () => {
+      try {
+        await updateAddress(address._id.toString(), formData);
+        toast.success("Address Updated Successfully");
+        onClose();
+        router.refresh();
+      } catch (error: any) {
+        toast.error("Update Failed", { description: error.message });
+      }
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Address</DialogTitle>
+          <DialogDescription>
+            Make changes to your address details below.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="streetAddress">Street Address</Label>
+            <Input
+              id="streetAddress"
+              value={formData.streetAddress}
+              onChange={handleChange}
+              disabled={isPending}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={formData.phone}
+              onChange={handleChange}
+              disabled={isPending}
+            />
+          </div>
+          <div className="flex items-center space-x-2 pt-2">
+            <Switch
+              id="isDefault"
+              checked={formData.isDefault}
+              onCheckedChange={handleSwitchChange}
+              disabled={isPending || address?.isDefault}
+            />
+            <Label htmlFor="isDefault">Set as default address</Label>
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} disabled={isPending}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={isPending}>
+            {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{" "}
+            Save Changes
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+// =================================================================
+// MAIN COMPONENT: UserDetails
+// =================================================================
+
+interface UserDetailsProps {
+  user: { name?: string | null; email?: string | null; image?: string | null };
+  addresses: IAddress[];
+}
+
+export const UserDetails = ({ user, addresses }: UserDetailsProps) => {
+  const router = useRouter();
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [isAddressDialogOpen, setIsAddressDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedAddress, setSelectedAddress] = useState<IAddress | null>(null);
+  const [isDeleting, startDeleteTransition] = useTransition();
+
+  const handleEditAddress = (address: IAddress) => {
+    setSelectedAddress(address);
+    setIsAddressDialogOpen(true);
+  };
+
+  const handleDeleteAddress = (address: IAddress) => {
+    setSelectedAddress(address);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = () => {
+    if (!selectedAddress) return;
+    startDeleteTransition(async () => {
+      try {
+        await deleteAddress(selectedAddress._id.toString());
+        toast.success("Address Deleted");
+        setIsDeleteDialogOpen(false);
+        setSelectedAddress(null);
+        router.refresh();
+      } catch (error: any) {
+        toast.error("Delete Failed", { description: error.message });
+      }
+    });
+  };
 
   return (
     <div className="py-4 md:py-8">
-      <div className="mb-4 grid gap-4 sm:grid-cols-2 sm:gap-8 lg:gap-16">
-        {/* User's Personal Information */}
-        <div className="space-y-4">
-          <div className="flex items-center space-x-4">
-            <Avatar className="h-16 w-16">
-              <AvatarImage
-                src={user.image ?? undefined}
-                alt={user.name ?? "User"}
-              />
-              <AvatarFallback>
-                {user.name?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <h2 className="text-xl font-bold text-foreground sm:text-2xl">
-                {user.name}
-              </h2>
-            </div>
+      {/* Personal Info Section */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-4">
+          <Avatar className="h-16 w-16">
+            <AvatarImage
+              src={user.image ?? undefined}
+              alt={user.name ?? "User"}
+            />
+            <AvatarFallback>
+              {user.name?.charAt(0).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+          <div>
+            <h2 className="text-xl font-bold text-foreground sm:text-2xl">
+              {user.name}
+            </h2>
+            <p className="text-muted-foreground">{user.email}</p>
           </div>
-          <dl>
-            <dt className="font-semibold text-foreground">Email Address</dt>
-            <dd className="text-muted-foreground">{user.email}</dd>
-          </dl>
-          <dl>
-            <dt className="font-semibold text-foreground">Default Phone</dt>
-            <dd className="text-muted-foreground">
-              {defaultAddress?.phone ?? "N/A"}
-            </dd>
-          </dl>
         </div>
-
-        {/* User's Default Address Information */}
-        <div className="space-y-4">
-          <dl>
-            <dt className="font-semibold text-foreground">
-              Default Delivery Address
-            </dt>
-            <dd className="flex items-start gap-2 text-muted-foreground">
-              <Truck className="mt-1 hidden h-5 w-5 shrink-0 lg:inline" />
-              <span>{formatAddress(defaultAddress)}</span>
-            </dd>
-          </dl>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setIsAccountDialogOpen(true)}
+        >
+          <Pencil className="mr-1.5 h-4 w-4" /> Edit
+        </Button>
       </div>
 
-      {/* Edit button now triggers the dialog */}
-      <Button onClick={() => setIsDialogOpen(true)}>
-        <Pencil className="mr-1.5 h-4 w-4" />
-        Edit Your Data
-      </Button>
+      {/* Address Management Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold text-foreground">My Addresses</h3>
+        {addresses.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {addresses.map((addr) => (
+              <div
+                key={addr._id.toString()}
+                className="relative rounded-lg border p-4 pr-16"
+              >
+                {addr.isDefault && (
+                  <div className="absolute top-2 right-2 text-xs font-semibold text-primary">
+                    DEFAULT
+                  </div>
+                )}
+                <div className="flex items-start gap-4">
+                  <Truck className="h-6 w-6 shrink-0 text-muted-foreground mt-1" />
+                  <div>
+                    <p className="font-semibold">{addr.recipientName}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {formatAddressString(addr)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {addr.phone}
+                    </p>
+                  </div>
+                </div>
+                <div className="absolute top-1/2 right-4 -translate-y-1/2 flex flex-col gap-2">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleEditAddress(addr)}
+                  >
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => handleDeleteAddress(addr)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-muted-foreground">
+            You haven't saved any addresses yet.
+          </p>
+        )}
+      </div>
 
-      {/* The Dialog component is rendered here but controlled by state */}
+      {/* Dialogs */}
       <EditAccountDialog
-        isOpen={isDialogOpen}
-        onClose={() => setIsDialogOpen(false)}
+        isOpen={isAccountDialogOpen}
+        onClose={() => setIsAccountDialogOpen(false)}
         user={user}
-        defaultAddress={defaultAddress}
       />
+      <EditAddressDialog
+        address={selectedAddress}
+        isOpen={isAddressDialogOpen}
+        onClose={() => setIsAddressDialogOpen(false)}
+      />
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete your
+              address.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}{" "}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
