@@ -23,11 +23,12 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { IAddress, ICart, ICity, ICountry, ICounty } from "@/types";
+import { IAddress, ICart, ICity, ICountry, ICounty, IVoucher } from "@/types";
 import {
   fetchCitiesByCounty,
   fetchCountiesByCountry,
   placeOrder,
+  validateVoucher,
 } from "@/lib/data";
 
 /**
@@ -114,6 +115,11 @@ export const CheckoutClient = ({
   const [isLoadingCounties, setIsLoadingCounties] = useState(false);
   const [isLoadingCities, setIsLoadingCities] = useState(false);
 
+  // State for voucher management
+  const [voucherCode, setVoucherCode] = useState("");
+  const [appliedVoucher, setAppliedVoucher] = useState<IVoucher | null>(null);
+  const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
+
   /**
    * A side effect that runs on initial load to pre-fill the form with the user's
    * default address, enhancing the user experience.
@@ -196,6 +202,63 @@ export const CheckoutClient = ({
   };
 
   /**
+   * Memoized calculation of the order summary. This prevents re-computation on every
+   * render, only updating when relevant dependencies (cart, city, voucher) change.
+   */
+  const orderSummary = useMemo(() => {
+    const subtotal = cart.items.reduce(
+      (acc, item) => acc + item.price * item.quantity,
+      0
+    );
+    const shippingFee =
+      cities.find((c) => c._id.toString() === selectedCityId)?.deliveryFee ?? 0;
+    const tax = subtotal * 0.16; // Example 16% VAT.
+
+    let discount = 0;
+    if (appliedVoucher) {
+      if (appliedVoucher.discountType === "percentage") {
+        discount = subtotal * (appliedVoucher.discountValue / 100);
+      } else if (appliedVoucher.discountType === "fixed") {
+        discount = appliedVoucher.discountValue;
+      }
+    }
+
+    const total = Math.max(0, subtotal + shippingFee + tax - discount);
+
+    return { subtotal, shippingFee, tax, discount, total };
+  }, [cart, cities, selectedCityId, appliedVoucher]);
+
+  /**
+   * Attempts to validate and apply a voucher code.
+   */
+  const handleApplyVoucher = async () => {
+    if (!voucherCode.trim()) {
+      toast.warning("Please enter a voucher code.");
+      return;
+    }
+    setIsApplyingVoucher(true);
+    try {
+      const validVoucher = await validateVoucher(voucherCode);
+      setAppliedVoucher(validVoucher);
+      toast.success("Voucher applied successfully!");
+    } catch (error: any) {
+      setAppliedVoucher(null); // Clear any previously applied voucher on failure
+      toast.error("Invalid Voucher", { description: error.message });
+    } finally {
+      setIsApplyingVoucher(false);
+    }
+  };
+
+  /**
+   * Removes an applied voucher and resets the input.
+   */
+  const handleRemoveVoucher = () => {
+    setAppliedVoucher(null);
+    setVoucherCode("");
+    toast.info("Voucher removed.");
+  };
+
+  /**
    * Handles the final order submission. It validates input, constructs the payload,
    * calls the API, and redirects the user on success.
    */
@@ -209,8 +272,6 @@ export const CheckoutClient = ({
     }
     setIsSubmitting(true);
     try {
-      // TODO: This address string concatenation is basic. For better data structure,
-      // the backend should accept a structured address object or reference an address ID.
       const fullAddress = `${shippingDetails.name}, ${
         cities.find((c) => c._id.toString() === selectedCityId)?.name
       }, ${counties.find((c) => c._id.toString() === selectedCountyId)?.name}`;
@@ -219,8 +280,9 @@ export const CheckoutClient = ({
         shippingDetails: { ...shippingDetails, address: fullAddress },
         paymentMethod,
         cityId: selectedCityId,
+        voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
       });
-      // Redirect to a success page with the order ID.
+
       router.push(`/success?orderId=${newOrder.orderId}`);
     } catch (error: any) {
       toast.error("Order Failed", {
@@ -231,22 +293,6 @@ export const CheckoutClient = ({
       setIsSubmitting(false);
     }
   };
-
-  /**
-   * Memoized calculation of the order summary. This prevents re-computation on every
-   * render, only updating when relevant dependencies (cart, city selection) change.
-   */
-  const orderSummary = useMemo(() => {
-    const subtotal = cart.items.reduce(
-      (acc, item) => acc + item.price * item.quantity,
-      0
-    );
-    const shippingFee =
-      cities.find((c) => c._id.toString() === selectedCityId)?.deliveryFee ?? 0;
-    const tax = subtotal * 0.16; // Example 16% VAT.
-    const total = subtotal + shippingFee + tax;
-    return { subtotal, shippingFee, tax, total };
-  }, [cart, cities, selectedCityId]);
 
   return (
     <section className="bg-background py-8 md:py-16">
@@ -393,7 +439,7 @@ export const CheckoutClient = ({
                             key={c._id.toString()}
                             value={c._id.toString()}
                           >
-                            {c.name} (+{formatPrice(c.deliveryFee)})
+                            {c.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -452,6 +498,52 @@ export const CheckoutClient = ({
                 <CardTitle>Order Summary</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="voucher">Voucher Code</Label>
+                  <div className="flex items-start gap-2">
+                    <Input
+                      id="voucher"
+                      placeholder="e.g., SALE20"
+                      value={voucherCode}
+                      onChange={(e) =>
+                        setVoucherCode(e.target.value.toUpperCase())
+                      }
+                      disabled={isApplyingVoucher || !!appliedVoucher}
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleApplyVoucher}
+                      disabled={
+                        !voucherCode || isApplyingVoucher || !!appliedVoucher
+                      }
+                      className="whitespace-nowrap"
+                    >
+                      {isApplyingVoucher && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Apply
+                    </Button>
+                  </div>
+                  {appliedVoucher && (
+                    <div className="flex items-center justify-between pt-1 text-sm">
+                      <p className="text-green-600">
+                        Applied:{" "}
+                        <span className="font-semibold">
+                          {appliedVoucher.code}
+                        </span>
+                      </p>
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="h-auto p-0 text-destructive"
+                        onClick={handleRemoveVoucher}
+                      >
+                        Remove
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                <Separator />
                 <dl className="flex items-center justify-between gap-4">
                   <dt>Subtotal</dt>
                   <dd>{formatPrice(orderSummary.subtotal)}</dd>
@@ -464,6 +556,12 @@ export const CheckoutClient = ({
                   <dt>Tax (16%)</dt>
                   <dd>{formatPrice(orderSummary.tax)}</dd>
                 </dl>
+                {orderSummary.discount > 0 && (
+                  <dl className="flex items-center justify-between gap-4 text-green-600">
+                    <dt>Discount</dt>
+                    <dd>-{formatPrice(orderSummary.discount)}</dd>
+                  </dl>
+                )}
                 <Separator />
                 <dl className="flex items-center justify-between gap-4">
                   <dt className="text-lg font-bold">Total</dt>

@@ -555,7 +555,7 @@ export const removeCartItem = async (productId: string): Promise<ICart> => {
 };
 
 // =================================================================
-// REVIEW & ORDER MUTATION FUNCTIONS
+// REVIEW, VOUCHER, & ORDER MUTATION FUNCTIONS
 // =================================================================
 
 /**
@@ -631,8 +631,34 @@ export const deleteReview = async (reviewId: string): Promise<void> => {
 };
 
 /**
+ * Validates a voucher code against the API to check if it's active and unexpired.
+ * @param code - The voucher code to validate.
+ * @returns A promise that resolves to the voucher object if valid.
+ * @throws Will throw an error if the voucher is invalid, expired, or the request fails.
+ */
+export const validateVoucher = async (code: string): Promise<IVoucher> => {
+    try {
+        // The API route should handle case-insensitivity, but it's good practice
+        // to match the schema's `uppercase` property.
+        const response = await fetch(`${API_BASE_URL}/vouchers/${code.toUpperCase()}`);
+        const result = await response.json();
+
+        if (!response.ok) {
+            // Forward the specific error message from the API
+            throw new Error(result.message || 'Invalid voucher code.');
+        }
+
+        // The API should return the voucher data in a `data` property
+        return result.data;
+    } catch (error) {
+        console.error(`Error validating voucher ${code}:`, error);
+        throw error; // Re-throw to be caught by the calling component
+    }
+};
+
+/**
  * Submits the checkout form data to create a new order.
- * @param payload - The data required to create an order, including shipping and payment details.
+ * @param payload - The data required to create an order, including shipping, payment, and optional voucher details.
  * @returns A promise that resolves to the newly created order object.
  * @throws Will throw an error if the API request fails.
  */
@@ -640,6 +666,7 @@ export const placeOrder = async (payload: {
     shippingDetails: { name: string; email: string; phone: string; address: string; };
     paymentMethod: string;
     cityId: string;
+    voucherCode?: string; // MODIFICATION: Added optional voucherCode
 }): Promise<IOrder> => {
     try {
         const authOptions = await getAuthFetchOptions({
