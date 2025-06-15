@@ -52,9 +52,15 @@ export default function Navbar() {
         {/* Desktop Logo */}
         <Link
           href="/"
-          className="hidden items-center gap-2 font-semibold lg:flex h-"
+          className="hidden items-center gap-2 font-semibold lg:flex"
         >
-          <Image src="/logo.svg" alt="Logo" />
+          <Image
+            src="/logo.svg"
+            alt="Avenue Fashion Logo"
+            width={140}
+            height={40}
+            className="h-10 w-auto"
+          />
         </Link>
       </div>
 
