@@ -99,7 +99,7 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
     const originalPrice = parseFloat(String(formData.originalPrice)) || 0;
     const discount = parseFloat(String(formData.discount)) || 0;
 
-    let newValues: Partial<typeof formData> = {};
+    const newValues: Partial<typeof formData> = {};
 
     // Logic: If user changed price or original price, calculate the discount.
     if (
