@@ -4,6 +4,8 @@ Avenue Fashion is a comprehensive, full-stack e-commerce platform built with a m
 
 This project also serves as a reference implementation for a multi-tenant payment architecture, where a central entity can manage payments for multiple sub-accounts (e.g., different brands or stores) using a single payment gateway account.
 
+![Avenue Fashion Screenshot](https://res.cloudinary.com/dli0mqabp/image/upload/v1750022154/Screenshot_2025-06-16_001503_icldjf.png)
+
 ## Table of Contents
 
 - [Project Overview](#project-overview)
@@ -47,7 +49,7 @@ The application is architecturally split into two primary domains using Route Gr
 ### Admin Dashboard
 
 - **Analytics Overview**: A dashboard with key metrics like total revenue, sales volume, new customers, and revenue-over-time charts.
-- **Product Management**: Full CRUD (Create, Read, Update, Delete) functionality for products, managed through a paginated and searchable data table.
+- **Product Management**: Full CRUD functionality for products, managed through a paginated and searchable data table, with an integrated **Cloudinary image uploader** and preview.
 - **Order Management**: View and update the fulfillment status of all customer orders, which dynamically updates the customer's visual timeline.
 - **User Management**: View all users and manage their roles (e.g., promote a user to admin).
 - **Voucher Management**: Create and manage percentage-based or fixed-amount discount codes.
@@ -66,6 +68,8 @@ This project utilizes a modern, cohesive set of tools to deliver a high-quality 
 - **UI Components**: [shadcn/ui](https://ui.shadcn.com/)
 - **Data Tables**: [TanStack Table v8](https://tanstack.com/table/v8)
 - **Data Visualization**: [Recharts](https://recharts.org/)
+- **Notifications**: [Sonner](https://sonner.emilkowal.ski/) (for toast messages)
+- **Media Management**: [Cloudinary](https://cloudinary.com/)
 
 ## Architectural Decisions
 
@@ -93,6 +97,7 @@ The project follows the standard Next.js App Router structure, organized by feat
 │   └── globals.css
 ├── components/
 │   ├── admin/
+│   │   └── ImageUploader.tsx   # Reusable image upload component
 │   ├── customer/
 │   └── ui/
 ├── lib/
@@ -116,6 +121,7 @@ Follow these instructions to get a copy of the project up and running on your lo
 - [npm](https://www.npmjs.com/), [yarn](https://yarnpkg.com/), or [pnpm](https://pnpm.io/)
 - A [MongoDB](https://www.mongodb.com/) instance (local or a free cloud-hosted instance via [MongoDB Atlas](https://www.mongodb.com/cloud/atlas/register))
 - A [Paystack](https://paystack.com/) account.
+- A [Cloudinary](https://cloudinary.com/) account for image hosting.
 
 ### Installation
 
@@ -150,6 +156,12 @@ AUTH_GOOGLE_SECRET="your-google-client-secret"
 # Your PUBLIC key from the parent Paystack account dashboard.
 NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY="pk_test_xxxxxxxxxxxxxxxxxxxxxxxx"
 
+# Cloudinary Configuration
+# Go to your Cloudinary Dashboard -> Settings -> Upload -> Upload Presets
+# Create a new UNSIGNED preset and copy its name here.
+NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="your-cloud-name"
+NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET="your-unsigned-upload-preset"
+
 # Internal Webhook Security
 # A strong, randomly generated secret for verifying requests from your central Nyota API.
 # Generate with: openssl rand -base64 32
@@ -174,8 +186,8 @@ _Note: The Paystack Secret Key (`sk_test_...`or`sk*live*...`) is NOT stored in t
 
 ## Future Improvements
 
+- `[x]` **File Uploads**: Implement a proper file upload system (e.g., to Cloudinary or AWS S3) for product images.
 - `[ ]` **Robust Form Validation**: Integrate `react-hook-form` and `zod` for schema-based validation.
-- `[ ]` **File Uploads**: Implement a proper file upload system (e.g., to Cloudinary or AWS S3) for product images.
 - `[ ]` **Retry Logic for Payments**: Implement a "Retry Payment" feature for orders with a pending payment status.
 - `[ ]` **Comprehensive Testing**: Add a testing suite with Jest/Vitest and React Testing Library for unit tests, and Cypress/Playwright for E2E tests.
 - `[ ]` **Error Reporting**: Integrate a service like Sentry for real-time error tracking in production.

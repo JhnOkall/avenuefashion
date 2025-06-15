@@ -188,7 +188,7 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
           {/* Product Image Section */}
           <div className="shrink-0">
             {/* TODO: Enhance this to be an image gallery carousel if product.images is implemented. */}
-            <div className="relative mx-auto h-96 max-w-md lg:max-w-lg rounded-lg">
+            <div className="relative mx-auto h-96 max-w-md lg:max-w-lg">
               <Image
                 className="h-full w-full rounded-lg object-contain"
                 src={product.imageUrl}
