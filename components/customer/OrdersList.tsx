@@ -53,10 +53,11 @@ const statusConfig: Record<
     label: string;
   }
 > = {
-  "Pre-order": { icon: Hourglass, variant: "default", label: "Pre-order" },
+  Processing: { icon: Hourglass, variant: "default", label: "Processing" },
   Pending: { icon: Hourglass, variant: "default", label: "Pending" },
   "In transit": { icon: Truck, variant: "secondary", label: "In Transit" },
   Confirmed: { icon: CheckCircle2, variant: "success", label: "Confirmed" },
+  Delivered: { icon: CheckCircle2, variant: "success", label: "Delivered" },
   Cancelled: { icon: XCircle, variant: "destructive", label: "Cancelled" },
 };
 
