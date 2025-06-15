@@ -190,7 +190,7 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
             {/* TODO: Enhance this to be an image gallery carousel if product.images is implemented. */}
             <div className="relative mx-auto h-96 max-w-md lg:max-w-lg">
               <Image
-                className="h-full w-full rounded-lg object-contain"
+                className="h-full w-full rounded-lg object-contain rounded-lg"
                 src={product.imageUrl}
                 alt={product.name}
                 fill
