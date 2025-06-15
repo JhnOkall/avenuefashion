@@ -657,16 +657,49 @@ export const validateVoucher = async (code: string): Promise<IVoucher> => {
 };
 
 /**
+ * Creates a new address for the current authenticated user.
+ * This function is typically called during checkout when a new address is entered.
+ * @param addressData The details of the new address.
+ * @returns A promise that resolves to the newly created address object.
+ * @throws Will throw an error if the request fails.
+ */
+export const createAddress = async (addressData: {
+    recipientName: string;
+    phone: string;
+    country: string; // ID
+    county: string;  // ID
+    city: string;    // ID
+    streetAddress: string;
+    isDefault?: boolean;
+}): Promise<IAddress> => {
+    try {
+        const authOptions = await getAuthFetchOptions({
+            method: 'POST',
+            body: JSON.stringify(addressData),
+        });
+        // Assumes API endpoint at /api/me/addresses handles POST to create new address
+        const response = await fetch(`${API_BASE_URL}/me/addresses`, authOptions);
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.message || 'Failed to save new address.');
+        }
+        return result.data;
+    } catch (error) {
+        console.error("Error in createAddress:", error);
+        throw error;
+    }
+};
+
+/**
  * Submits the checkout form data to create a new order.
- * @param payload - The data required to create an order, including shipping, payment, and optional voucher details.
+ * @param payload - The data required to create an order, including a reference to the shipping address.
  * @returns A promise that resolves to the newly created order object.
  * @throws Will throw an error if the API request fails.
  */
 export const placeOrder = async (payload: {
-    shippingDetails: { name: string; email: string; phone: string; address: string; };
+    addressId: string; // MODIFICATION: Now requires a specific address ID.
     paymentMethod: string;
-    cityId: string;
-    voucherCode?: string; // MODIFICATION: Added optional voucherCode
+    voucherCode?: string;
 }): Promise<IOrder> => {
     try {
         const authOptions = await getAuthFetchOptions({

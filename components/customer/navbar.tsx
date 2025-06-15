@@ -17,7 +17,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { useCart } from "@/contexts/CartContext";
 import { GlobalSearch } from "./GlobalSearch";
-// import { ThemeToggle } from "@/components/ThemeToggle";
 
 /**
  * A helper function to format a numeric price into a localized currency string.
@@ -46,7 +45,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6">
       <Link href="/" className="lg:hidden">
-        <Package2 className="h-6 w-6 text-primary-foreground" />
+        <Package2 className="h-6 w-6 text-primary" />
       </Link>
       <div className="flex items-center gap-2 lg:gap-6">
         {/* Desktop Logo */}
@@ -54,7 +53,7 @@ export default function Navbar() {
           href="/"
           className="hidden items-center gap-2 font-semibold lg:flex"
         >
-          <Package2 className="h-6 w-6 text-primary-foreground" />
+          <Package2 className="h-6 w-6 text-primary" />
           <span>Avenue Fashion</span>
         </Link>
       </div>
@@ -66,8 +65,6 @@ export default function Navbar() {
 
       {/* Right-aligned Actions */}
       <div className="flex items-center gap-2">
-        {/* } <ThemeToggle /> */}
-
         {/* Cart Dropdown Menu */}
         <Button
           variant="ghost"

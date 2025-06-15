@@ -29,23 +29,17 @@ import {
   fetchCountiesByCountry,
   placeOrder,
   validateVoucher,
+  createAddress,
 } from "@/lib/data";
 
 /**
  * Formats a numeric price into a localized currency string.
- * @param {number} price - The price to format.
- * @returns {string} The formatted currency string (e.g., "Ksh 1,234.56").
  */
-// TODO: Relocate this helper to a shared `utils/formatters.ts` file for application-wide reusability.
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
     price
   );
 
-/**
- * Defines the expected shape of the user session object, typically from an
- * authentication provider like NextAuth.js.
- */
 type UserSession = {
   name?: string | null;
   email?: string | null;
@@ -53,35 +47,13 @@ type UserSession = {
   id?: string;
 };
 
-/**
- * Defines the props required by the CheckoutClient component.
- */
 interface CheckoutClientProps {
-  /**
-   * The current authenticated user's session data.
-   */
   user: UserSession;
-  /**
-   * The user's active shopping cart.
-   */
   cart: ICart;
-  /**
-   * A list of the user's saved addresses.
-   */
   addresses: IAddress[];
-  /**
-   * A list of all available countries for shipping.
-   */
   countries: ICountry[];
 }
 
-/**
- * A client component that manages the entire checkout process, including
- * delivery details, payment method selection, and order summary calculation.
- * It handles form state, dynamic data fetching for locations, and final order submission.
- *
- * @param {CheckoutClientProps} props - The initial data required for the component.
- */
 export const CheckoutClient = ({
   user,
   cart,
@@ -90,23 +62,22 @@ export const CheckoutClient = ({
 }: CheckoutClientProps) => {
   const router = useRouter();
 
-  // State for the user-inputted shipping information.
+  // State to manage delivery address choice: 'use-saved' or 'use-new'
+  const [deliveryOption, setDeliveryOption] = useState("use-saved");
+
   const [shippingDetails, setShippingDetails] = useState({
     name: user.name ?? "",
     email: user.email ?? "",
     phone: "",
+    streetAddress: "",
   });
 
-  // State to track the selected saved address and payment method.
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
     null
   );
   const [paymentMethod, setPaymentMethod] = useState("credit-card");
-
-  // State for managing the submission process to prevent double-clicks and provide UI feedback.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // State for the dynamic, cascading location dropdowns.
   const [selectedCountryId, setSelectedCountryId] = useState("");
   const [selectedCountyId, setSelectedCountyId] = useState("");
   const [selectedCityId, setSelectedCityId] = useState("");
@@ -115,56 +86,76 @@ export const CheckoutClient = ({
   const [isLoadingCounties, setIsLoadingCounties] = useState(false);
   const [isLoadingCities, setIsLoadingCities] = useState(false);
 
-  // State for voucher management
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<IVoucher | null>(null);
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
 
-  /**
-   * A side effect that runs on initial load to pre-fill the form with the user's
-   * default address, enhancing the user experience.
-   */
-  useEffect(() => {
-    const defaultAddress = addresses.find((a) => a.isDefault) || addresses[0];
-    if (defaultAddress) {
-      handleAddressSelect(defaultAddress);
-    }
-  }, [addresses]);
-
-  /**
-   * A generic handler for updating controlled input fields in the shipping details form.
-   */
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setShippingDetails({ ...shippingDetails, [e.target.id]: e.target.value });
-  };
-
-  /**
-   * Populates the form fields when a user selects a saved address.
-   * @param {IAddress} address - The selected address object.
-   */
-  const handleAddressSelect = (address: IAddress) => {
+  // Helper to populate the entire form from a saved address object
+  const setFormFromAddress = async (address: IAddress) => {
     setSelectedAddressId(address._id.toString());
     setShippingDetails({
       name: address.recipientName,
-      email: user.email ?? "", // Keep the current user's email.
+      email: user.email ?? "",
       phone: address.phone,
+      streetAddress: address.streetAddress,
     });
-    // Pre-select the country and trigger the cascade to load relevant counties.
-    const countryId = address.country._id.toString();
-    setSelectedCountryId(countryId);
-    // Reset subsequent location fields to force re-selection.
-    // TODO: A more advanced implementation could attempt to pre-select the county and city as well.
+
+    setIsLoadingCounties(true);
+    setIsLoadingCities(true);
+    const countryId = (address.country as ICountry)._id.toString();
+    const countyId = (address.county as ICounty)._id.toString();
+    const cityId = (address.city as ICity)._id.toString();
+
+    try {
+      setSelectedCountryId(countryId);
+      const fetchedCounties = await fetchCountiesByCountry(countryId);
+      setCounties(fetchedCounties);
+      setSelectedCountyId(countyId);
+      const fetchedCities = await fetchCitiesByCounty(countyId);
+      setCities(fetchedCities);
+      setSelectedCityId(cityId);
+    } catch (error) {
+      toast.error("Error", { description: "Failed to load address location." });
+      setSelectedCountyId("");
+      setSelectedCityId("");
+    } finally {
+      setIsLoadingCounties(false);
+      setIsLoadingCities(false);
+    }
+  };
+
+  // Handler to clear the form when switching to "new address"
+  const handleNewAddressSelect = () => {
+    setSelectedAddressId(null);
+    setShippingDetails({
+      name: user.name ?? "",
+      email: user.email ?? "",
+      phone: "",
+      streetAddress: "",
+    });
+    setSelectedCountryId("");
     setSelectedCountyId("");
     setSelectedCityId("");
     setCounties([]);
     setCities([]);
-    if (countryId) onCountryChange(countryId);
   };
 
-  /**
-   * Fetches counties based on the selected country and updates the state.
-   * @param {string} countryId - The ID of the selected country.
-   */
+  useEffect(() => {
+    const defaultAddress =
+      addresses.find((a) => a.isDefault) ||
+      (addresses.length > 0 ? addresses[0] : null);
+    if (defaultAddress) {
+      setDeliveryOption("use-saved");
+      setFormFromAddress(defaultAddress);
+    } else {
+      setDeliveryOption("use-new");
+    }
+  }, [addresses]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setShippingDetails({ ...shippingDetails, [e.target.id]: e.target.value });
+  };
+
   const onCountryChange = async (countryId: string) => {
     setSelectedCountryId(countryId);
     setSelectedCountyId("");
@@ -182,10 +173,6 @@ export const CheckoutClient = ({
     }
   };
 
-  /**
-   * Fetches cities based on the selected county and updates the state.
-   * @param {string} countyId - The ID of the selected county.
-   */
   const onCountyChange = async (countyId: string) => {
     setSelectedCountyId(countyId);
     setSelectedCityId("");
@@ -201,10 +188,6 @@ export const CheckoutClient = ({
     }
   };
 
-  /**
-   * Memoized calculation of the order summary. This prevents re-computation on every
-   * render, only updating when relevant dependencies (cart, city, voucher) change.
-   */
   const orderSummary = useMemo(() => {
     const subtotal = cart.items.reduce(
       (acc, item) => acc + item.price * item.quantity,
@@ -212,82 +195,84 @@ export const CheckoutClient = ({
     );
     const shippingFee =
       cities.find((c) => c._id.toString() === selectedCityId)?.deliveryFee ?? 0;
-    const tax = subtotal * 0.16; // Example 16% VAT.
-
+    const tax = subtotal * 0.16;
     let discount = 0;
     if (appliedVoucher) {
-      if (appliedVoucher.discountType === "percentage") {
-        discount = subtotal * (appliedVoucher.discountValue / 100);
-      } else if (appliedVoucher.discountType === "fixed") {
-        discount = appliedVoucher.discountValue;
-      }
+      discount =
+        appliedVoucher.discountType === "percentage"
+          ? subtotal * (appliedVoucher.discountValue / 100)
+          : appliedVoucher.discountValue;
     }
-
     const total = Math.max(0, subtotal + shippingFee + tax - discount);
-
     return { subtotal, shippingFee, tax, discount, total };
   }, [cart, cities, selectedCityId, appliedVoucher]);
 
-  /**
-   * Attempts to validate and apply a voucher code.
-   */
   const handleApplyVoucher = async () => {
-    if (!voucherCode.trim()) {
-      toast.warning("Please enter a voucher code.");
-      return;
-    }
+    if (!voucherCode.trim())
+      return toast.warning("Please enter a voucher code.");
     setIsApplyingVoucher(true);
     try {
       const validVoucher = await validateVoucher(voucherCode);
       setAppliedVoucher(validVoucher);
       toast.success("Voucher applied successfully!");
     } catch (error: any) {
-      setAppliedVoucher(null); // Clear any previously applied voucher on failure
+      setAppliedVoucher(null);
       toast.error("Invalid Voucher", { description: error.message });
     } finally {
       setIsApplyingVoucher(false);
     }
   };
 
-  /**
-   * Removes an applied voucher and resets the input.
-   */
   const handleRemoveVoucher = () => {
     setAppliedVoucher(null);
     setVoucherCode("");
     toast.info("Voucher removed.");
   };
 
-  /**
-   * Handles the final order submission. It validates input, constructs the payload,
-   * calls the API, and redirects the user on success.
-   */
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCityId) {
-      toast.warning("Validation Error", {
-        description: "Please select a delivery city before placing the order.",
-      });
-      return;
-    }
     setIsSubmitting(true);
+    let finalAddressId = selectedAddressId;
+
     try {
-      const fullAddress = `${shippingDetails.name}, ${
-        cities.find((c) => c._id.toString() === selectedCityId)?.name
-      }, ${counties.find((c) => c._id.toString() === selectedCountyId)?.name}`;
+      if (deliveryOption === "use-new") {
+        if (!shippingDetails.streetAddress.trim() || !selectedCityId) {
+          toast.warning("Validation Error", {
+            description: "Please complete all new address fields.",
+          });
+          setIsSubmitting(false);
+          return;
+        }
+        const newAddress = await createAddress({
+          recipientName: shippingDetails.name,
+          phone: shippingDetails.phone,
+          streetAddress: shippingDetails.streetAddress,
+          country: selectedCountryId,
+          county: selectedCountyId,
+          city: selectedCityId,
+          isDefault: addresses.length === 0,
+        });
+        finalAddressId = newAddress._id.toString();
+      }
+
+      if (!finalAddressId) {
+        toast.warning("Validation Error", {
+          description: "Please select a delivery address.",
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
       const newOrder = await placeOrder({
-        shippingDetails: { ...shippingDetails, address: fullAddress },
+        addressId: finalAddressId,
         paymentMethod,
-        cityId: selectedCityId,
         voucherCode: appliedVoucher ? appliedVoucher.code : undefined,
       });
 
       router.push(`/success?orderId=${newOrder.orderId}`);
     } catch (error: any) {
       toast.error("Order Failed", {
-        description:
-          error.message || "An unexpected error occurred. Please try again.",
+        description: error.message || "An unexpected error occurred.",
       });
     } finally {
       setIsSubmitting(false);
@@ -302,18 +287,49 @@ export const CheckoutClient = ({
       >
         <div className="lg:flex lg:items-start lg:gap-12 xl:gap-16">
           <div className="min-w-0 flex-1 space-y-8">
-            {/* Delivery Details Section */}
             <Card>
               <CardHeader>
                 <CardTitle>Delivery Details</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {addresses.length > 0 && (
+              <CardContent className="space-y-6">
+                <RadioGroup
+                  value={deliveryOption}
+                  onValueChange={setDeliveryOption}
+                  className="flex gap-4"
+                >
+                  <Label
+                    htmlFor="use-saved"
+                    className="flex items-center space-x-2"
+                  >
+                    <RadioGroupItem
+                      value="use-saved"
+                      id="use-saved"
+                      disabled={addresses.length === 0}
+                      onClick={() => setFormFromAddress(addresses[0])}
+                    />
+                    <span>Use saved address</span>
+                  </Label>
+                  <Label
+                    htmlFor="use-new"
+                    className="flex items-center space-x-2"
+                  >
+                    <RadioGroupItem
+                      value="use-new"
+                      id="use-new"
+                      onClick={handleNewAddressSelect}
+                    />
+                    <span>Enter new address</span>
+                  </Label>
+                </RadioGroup>
+
+                <Separator />
+
+                {deliveryOption === "use-saved" && (
                   <div className="space-y-2">
-                    <Label>Use a saved address</Label>
+                    <Label>Select a saved address</Label>
                     <RadioGroup
                       onValueChange={(id) =>
-                        handleAddressSelect(
+                        setFormFromAddress(
                           addresses.find((a) => a._id.toString() === id)!
                         )
                       }
@@ -336,120 +352,131 @@ export const CheckoutClient = ({
                         </Label>
                       ))}
                     </RadioGroup>
-                    <Separator className="my-4" />
                   </div>
                 )}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Your name*</Label>
-                    <Input
-                      id="name"
-                      value={shippingDetails.name}
-                      onChange={handleInputChange}
-                      required
-                    />
+
+                {deliveryOption === "use-new" && (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Recipient name*</Label>
+                      <Input
+                        id="name"
+                        value={shippingDetails.name}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Your email*</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={shippingDetails.email}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone Number*</Label>
+                      <Input
+                        id="phone"
+                        type="tel"
+                        value={shippingDetails.phone}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="streetAddress">Street Address*</Label>
+                      <Input
+                        id="streetAddress"
+                        value={shippingDetails.streetAddress}
+                        onChange={handleInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="country">Country*</Label>
+                      <Select
+                        onValueChange={onCountryChange}
+                        value={selectedCountryId}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select Country" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {countries.map((c) => (
+                            <SelectItem
+                              key={c._id.toString()}
+                              value={c._id.toString()}
+                            >
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="county">County*</Label>
+                      <Select
+                        onValueChange={onCountyChange}
+                        value={selectedCountyId}
+                        disabled={!selectedCountryId || isLoadingCounties}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              isLoadingCounties ? "Loading..." : "Select County"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {counties.map((c) => (
+                            <SelectItem
+                              key={c._id.toString()}
+                              value={c._id.toString()}
+                            >
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2 sm:col-span-2">
+                      <Label htmlFor="city">City*</Label>
+                      <Select
+                        onValueChange={setSelectedCityId}
+                        value={selectedCityId}
+                        disabled={!selectedCountyId || isLoadingCities}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue
+                            placeholder={
+                              isLoadingCities ? "Loading..." : "Select City"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {cities.map((c) => (
+                            <SelectItem
+                              key={c._id.toString()}
+                              value={c._id.toString()}
+                            >
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Your email*</Label>
-                    <Input
-                      id="email"
-                      type="email"
-                      value={shippingDetails.email}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number*</Label>
-                    <Input
-                      id="phone"
-                      type="tel"
-                      value={shippingDetails.phone}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="country">Country*</Label>
-                    <Select
-                      onValueChange={onCountryChange}
-                      value={selectedCountryId}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select Country" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {countries.map((c) => (
-                          <SelectItem
-                            key={c._id.toString()}
-                            value={c._id.toString()}
-                          >
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="county">County*</Label>
-                    <Select
-                      onValueChange={onCountyChange}
-                      value={selectedCountyId}
-                      disabled={!selectedCountryId || isLoadingCounties}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            isLoadingCounties ? "Loading..." : "Select County"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {counties.map((c) => (
-                          <SelectItem
-                            key={c._id.toString()}
-                            value={c._id.toString()}
-                          >
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="city">City*</Label>
-                    <Select
-                      onValueChange={setSelectedCityId}
-                      value={selectedCityId}
-                      disabled={!selectedCountyId || isLoadingCities}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue
-                          placeholder={
-                            isLoadingCities ? "Loading..." : "Select City"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {cities.map((c) => (
-                          <SelectItem
-                            key={c._id.toString()}
-                            value={c._id.toString()}
-                          >
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Payment Method Section */}
+            {/* Payment Method Section (unchanged) */}
             <Card>
               <CardHeader>
                 <CardTitle>Payment Method</CardTitle>
@@ -491,7 +518,7 @@ export const CheckoutClient = ({
             </Card>
           </div>
 
-          {/* Order Summary Section */}
+          {/* Order Summary Section (unchanged) */}
           <div className="mt-6 w-full space-y-6 lg:mt-0 lg:max-w-xs xl:max-w-md">
             <Card className="w-full">
               <CardHeader>
@@ -520,7 +547,7 @@ export const CheckoutClient = ({
                     >
                       {isApplyingVoucher && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      )}
+                      )}{" "}
                       Apply
                     </Button>
                   </div>

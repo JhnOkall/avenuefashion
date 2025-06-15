@@ -5,7 +5,6 @@ import { Toaster } from "@/components/ui/sonner";
 import { CartProvider } from "@/contexts/CartContext";
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
-import { ThemeProvider } from "next-themes";
 
 /**
  * Initializes the Geist Sans font for the application.
@@ -64,28 +63,26 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider attribute="class" defaultTheme="dark">
+        {/*
+         * The `SessionProvider` is essential for making the server-fetched session data
+         * available to client components via the `useSession` hook.
+         * This is the recommended pattern for the Next.js App Router.
+         */}
+        <SessionProvider session={session}>
           {/*
-           * The `SessionProvider` is essential for making the server-fetched session data
-           * available to client components via the `useSession` hook.
-           * This is the recommended pattern for the Next.js App Router.
+           * Wraps the application with the `CartProvider`, making shopping cart
+           * state and actions available globally via the `useCart` hook.
            */}
-          <SessionProvider session={session}>
+          <CartProvider>
+            {/* Renders the active page component passed as children. */}
+            {children}
             {/*
-             * Wraps the application with the `CartProvider`, making shopping cart
-             * state and actions available globally via the `useCart` hook.
+             * Renders the `Toaster` component at the root level, allowing any
+             * component to trigger toast notifications.
              */}
-            <CartProvider>
-              {/* Renders the active page component passed as children. */}
-              {children}
-              {/*
-               * Renders the `Toaster` component at the root level, allowing any
-               * component to trigger toast notifications.
-               */}
-              <Toaster />
-            </CartProvider>
-          </SessionProvider>
-        </ThemeProvider>
+            <Toaster />
+          </CartProvider>
+        </SessionProvider>
       </body>
     </html>
   );

@@ -111,7 +111,7 @@ const ProductGrid = ({
   );
 
   return (
-    <section className="bg-background py-8 md:py-12">
+    <section className="bg-muted/40 py-8 md:py-12">
       <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
         {/* Toolbar for Filtering and Sorting */}
         <div className="mb-4 flex items-center gap-2 md:mb-8">

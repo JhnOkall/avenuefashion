@@ -70,9 +70,7 @@ export const OrderTimeline = ({ timeline }: OrderTimelineProps) => {
                 {/* The timeline marker (the circle with an icon). */}
                 <span
                   className={`absolute -left-3.5 flex h-7 w-7 items-center justify-center rounded-full ring-8 ring-background 
-                    ${
-                      isCompleted ? "bg-primary/20 text-primary-foreground" : ""
-                    }
+                    ${isCompleted ? "bg-primary/20 text-primary" : ""}
                     ${
                       isCurrent
                         ? "bg-blue-200 text-blue-600 dark:bg-blue-900 dark:text-blue-300 animate-pulse"

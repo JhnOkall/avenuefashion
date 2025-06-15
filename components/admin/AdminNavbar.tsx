@@ -75,7 +75,7 @@ export const AdminNavbar = () => {
               href="/dashboard"
               className="mb-4 flex items-center gap-2 text-lg font-semibold"
             >
-              <Package2 className="h-6 w-6 text-primary-foreground" />
+              <Package2 className="h-6 w-6 text-primary" />
               <span>Avenue Admin</span>
             </Link>
             {mobileNavItems.map(({ href, label, icon: Icon }) => (

@@ -105,7 +105,7 @@ export const OrderTracking = ({ order }: OrderTrackingProps) => {
                   <OrderItem key={index} item={item} />
                 ))}
               </CardContent>
-              <CardFooter className="flex flex-col space-y-2 bg-muted p-6">
+              <CardFooter className="flex flex-col space-y-2 bg-muted/50 p-6">
                 {/* Detailed pricing breakdown */}
                 <dl className="flex w-full items-center justify-between gap-4">
                   <dt className="text-muted-foreground">Subtotal</dt>

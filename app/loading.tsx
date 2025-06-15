@@ -17,7 +17,7 @@ export default function Loading() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-4">
         {/* The brand icon with a subtle pulse animation for visual interest. */}
-        <Package2 className="h-12 w-12 animate-pulse text-primary-foreground" />
+        <Package2 className="h-12 w-12 animate-pulse text-primary" />
 
         {/* The spinner and accompanying text. */}
         <div className="flex items-center gap-2">
