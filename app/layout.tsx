@@ -6,7 +6,6 @@ import { CartProvider } from "@/contexts/CartContext";
 import { SessionProvider } from "next-auth/react";
 import { auth } from "@/auth";
 import Script from "next/script";
-import { PromotionalBannerWrapper } from "@/components/promotional-banner-wrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -93,7 +92,6 @@ export default async function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <PromotionalBannerWrapper />
         <SessionProvider session={session}>
           <CartProvider>
             {children}
