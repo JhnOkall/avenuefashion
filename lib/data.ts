@@ -683,6 +683,29 @@ export const validateVoucher = async (code: string): Promise<IVoucher> => {
 };
 
 /**
+ * Fetches a single random, active, percentage-based voucher for promotional use.
+ * Returns null if no eligible voucher is found or if an error occurs.
+ * @returns A promise that resolves to a voucher object or null.
+ */
+export const fetchRandomPromotionalVoucher = async (): Promise<IVoucher | null> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/vouchers/random`, {
+        cache: 'no-store', // We want this to be dynamic on each request
+      });
+      if (!response.ok) {
+        console.error('Failed to fetch promotional voucher');
+        return null;
+      }
+      const result: SingleResourceApiResponse<IVoucher | null> = await response.json();
+      return result.data;
+    } catch (error) {
+      console.error("Error in fetchRandomPromotionalVoucher:", error);
+      return null;
+    }
+  };
+  
+
+/**
  * Updates an existing address for the current authenticated user.
  * @param addressId - The unique identifier of the address to update.
  * @param data - An object containing the fields to update.

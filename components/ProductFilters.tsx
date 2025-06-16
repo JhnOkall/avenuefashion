@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Slider } from "@/components/ui/slider";
 import { fetchBrands } from "@/lib/data";
 import { IBrand } from "@/types";
 import { Skeleton } from "./ui/skeleton";
@@ -101,14 +100,6 @@ export const ProductFilters = ({
             ))}
           </RadioGroup>
         )}
-      </div>
-
-      {/* Price Range Filter Section */}
-      <div>
-        <h3 className="mb-3 text-lg font-medium">Price Range</h3>
-        {/* TODO: The max value is hardcoded. This should be made dynamic. */}
-        {/* TODO: Connect the onValueChange handler to update filter state. */}
-        <Slider defaultValue={[25, 75]} max={100} step={1} />
       </div>
 
       {/* Condition Filter Section */}
