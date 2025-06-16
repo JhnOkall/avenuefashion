@@ -10,7 +10,9 @@ import {
   Tag,
   MapPin,
   Package2,
+  ArrowLeft,
 } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 /**
  * A configuration array that defines the navigation links for the admin sidebar.
@@ -85,6 +87,14 @@ export const AdminSidebar = () => {
                 </Link>
               );
             })}
+            <Separator className="my-4" />
+            <Link
+              href="/"
+              className="flex items-center gap-3 rounded-lg px-3 py-2 transition-all hover:text-primary text-muted-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Storefront
+            </Link>
           </nav>
         </div>
       </div>
