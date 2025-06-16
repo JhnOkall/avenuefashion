@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Slider } from "@/components/ui/slider";
@@ -9,29 +8,37 @@ import { fetchBrands } from "@/lib/data";
 import { IBrand } from "@/types";
 import { Skeleton } from "./ui/skeleton";
 
-// TODO: Refactor this into a controlled component. It should accept filter state (e.g., selectedBrands, priceRange)
-// and an `onFilterChange` callback function via props. This will allow its state to be managed by a parent
-// component (like `ProductGrid`) and enable actual filtering logic.
+/**
+ * Defines the props for the ProductFilters component.
+ */
+interface ProductFiltersProps {
+  /** The currently selected brand name. Null if none selected. */
+  selectedBrand: string | null;
+  /** Callback function to update the selected brand. */
+  onBrandChange: (brand: string) => void;
+  /** The currently selected condition. Null if none selected. */
+  selectedCondition: "new" | "used" | "restored" | "" | null;
+  /** Callback function to update the selected condition. */
+  onConditionChange: (
+    condition: "new" | "used" | "restored" | "" | null
+  ) => void;
+}
 
 /**
- * Renders a set of UI controls for filtering products by various criteria such as
- * brand, price range, and condition.
+ * Renders a set of UI controls for filtering products. This is a controlled
+ * component whose state is managed by its parent.
+ *
+ * @param {ProductFiltersProps} props - The current filter state and change handlers.
  */
-export const ProductFilters = () => {
-  /**
-   * State to store the list of product brands fetched from the API.
-   */
+export const ProductFilters = ({
+  selectedBrand,
+  onBrandChange,
+  selectedCondition,
+  onConditionChange,
+}: ProductFiltersProps) => {
   const [brands, setBrands] = useState<IBrand[]>([]);
-
-  /**
-   * State to manage the loading status while fetching brands.
-   */
   const [isLoading, setIsLoading] = useState(true);
 
-  /**
-   * A side effect that runs once on component mount to fetch the list of
-   * available brands to populate the brand filter checkboxes.
-   */
   useEffect(() => {
     const getBrands = async () => {
       try {
@@ -39,13 +46,12 @@ export const ProductFilters = () => {
         setBrands(fetchedBrands);
       } catch (error) {
         console.error("Failed to load brands for filters:", error);
-        // TODO: Implement user-facing feedback for when brand fetching fails.
       } finally {
         setIsLoading(false);
       }
     };
     getBrands();
-  }, []); // The empty dependency array ensures this effect runs only once.
+  }, []);
 
   return (
     <div className="space-y-6">
@@ -53,24 +59,38 @@ export const ProductFilters = () => {
       <div>
         <h3 className="mb-3 text-lg font-medium">Brands</h3>
         {isLoading ? (
-          // Display skeleton loaders while brand data is being fetched.
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="flex items-center space-x-2">
-                <Skeleton className="h-4 w-4" />
+                <Skeleton className="h-4 w-4 rounded-full" />
                 <Skeleton className="h-4 w-20" />
               </div>
             ))}
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
+          <RadioGroup
+            value={selectedBrand || "all"}
+            onValueChange={(value) => {
+              // Pass an empty string for "all" to clear the filter
+              onBrandChange(value === "all" ? "" : value);
+            }}
+            className="space-y-1"
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="all" id="brand-all" />
+              <Label htmlFor="brand-all" className="font-normal">
+                All Brands
+              </Label>
+            </div>
             {brands.map((brand) => (
               <div
                 key={brand._id.toString()}
                 className="flex items-center space-x-2"
               >
-                {/* TODO: Wire up the `onCheckedChange` handler to update filter state. */}
-                <Checkbox id={`brand-${brand.name.toLowerCase()}`} />
+                <RadioGroupItem
+                  value={brand.name}
+                  id={`brand-${brand.name.toLowerCase()}`}
+                />
                 <Label
                   htmlFor={`brand-${brand.name.toLowerCase()}`}
                   className="font-normal"
@@ -79,36 +99,55 @@ export const ProductFilters = () => {
                 </Label>
               </div>
             ))}
-          </div>
+          </RadioGroup>
         )}
       </div>
 
       {/* Price Range Filter Section */}
       <div>
         <h3 className="mb-3 text-lg font-medium">Price Range</h3>
-        {/* TODO: The `max` value is hardcoded. This should be made dynamic, for instance, by fetching the min/max product prices from the API. */}
-        {/* TODO: Connect the `onValueChange` handler to update filter state. */}
+        {/* TODO: The max value is hardcoded. This should be made dynamic. */}
+        {/* TODO: Connect the onValueChange handler to update filter state. */}
         <Slider defaultValue={[25, 75]} max={100} step={1} />
       </div>
 
       {/* Condition Filter Section */}
       <div>
         <h3 className="mb-3 text-lg font-medium">Condition</h3>
-        {/* TODO: Connect the `onValueChange` handler to update filter state. */}
-        <RadioGroup defaultValue="all">
+        <RadioGroup
+          value={selectedCondition || "all"}
+          onValueChange={(value) => {
+            onConditionChange(
+              value === "all" ? "" : (value as "new" | "used" | "restored")
+            );
+          }}
+          defaultValue="all"
+          className="space-y-1"
+        >
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="all" id="condition-all" />
-            <Label htmlFor="condition-all">All</Label>
+            <Label htmlFor="condition-all" className="font-normal">
+              All
+            </Label>
           </div>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="new" id="condition-new" />
-            <Label htmlFor="condition-new">New</Label>
+            <Label htmlFor="condition-new" className="font-normal">
+              New
+            </Label>
           </div>
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="used" id="condition-used" />
-            <Label htmlFor="condition-used">Used</Label>
+            <Label htmlFor="condition-used" className="font-normal">
+              Used
+            </Label>
           </div>
-          {/* TODO: Add a 'restored' option to align with the IProduct interface. */}
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="restored" id="condition-restored" />
+            <Label htmlFor="condition-restored" className="font-normal">
+              Restored
+            </Label>
+          </div>
         </RadioGroup>
       </div>
     </div>

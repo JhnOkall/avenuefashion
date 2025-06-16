@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
@@ -26,80 +25,106 @@ import { IProduct } from "@/types";
 import { fetchProducts } from "@/lib/data";
 import { Skeleton } from "@/components/ui/skeleton";
 
-/**
- * Defines the props for the ProductGrid component.
- */
 interface ProductGridProps {
-  /**
-   * The initial set of products to display, typically pre-fetched on the server.
-   */
   initialProducts: IProduct[];
-  /**
-   * The total number of pages available, used to control the "Show More" button.
-   */
   initialTotalPages: number;
 }
 
-/**
- * A client-side component that displays a grid of products with controls for
- * filtering, sorting, and "load more" style pagination. It is initialized
- * with server-fetched data and handles subsequent data fetching on the client.
- *
- * @param {ProductGridProps} props - The initial data for the component.
- */
-// TODO: Refactor state management to use URL query parameters for filters and sorting.
-// This would make the state shareable, bookmarkable, and improve SEO.
+/** Defines the structure for our filter state */
+interface Filters {
+  brand: string | null;
+  condition: ("new" | "used" | "restored" | "") | null;
+}
+
 const ProductGrid = ({
   initialProducts,
   initialTotalPages,
 }: ProductGridProps) => {
-  // Manages the list of products displayed on the client.
   const [products, setProducts] = useState<IProduct[]>(initialProducts);
-  // Tracks the current page number for pagination.
   const [currentPage, setCurrentPage] = useState(1);
-  // Stores the total number of pages available from the API.
   const [totalPages, setTotalPages] = useState(initialTotalPages);
-  // Manages the loading state for fetching more products to provide UI feedback.
-  const [isLoading, setIsLoading] = useState(false);
+  // Differentiated loading states for a better user experience
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // For "Show More" button
+  const [isRefetching, setIsRefetching] = useState(false); // For filter/sort changes
 
-  // TODO: Implement state management for filters and sorting.
-  // const [filters, setFilters] = useState<Partial<FetchProductsParams>>({});
-  // const [sortBy, setSortBy] = useState<string>('createdAt');
-  // const [order, setOrder] = useState<'asc' | 'desc'>('desc');
+  // State for filters and sorting
+  const [filters, setFilters] = useState<Filters>({
+    brand: null,
+    condition: null,
+  });
+  const [sortBy, setSortBy] = useState<"createdAt" | "price" | "rating">(
+    "createdAt"
+  );
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
 
-  // TODO: Implement a `useEffect` hook that re-fetches products when filters or sorting change.
-  // This will reset the product list and pagination.
+  // A ref to prevent the useEffect from running on the initial mount
+  const isInitialMount = useRef(true);
 
   /**
-   * Fetches the next page of products and appends them to the current list.
+   * Re-fetches products from the first page whenever filters or sorting options change.
+   * This effect resets the product list and pagination.
+   */
+  useEffect(() => {
+    // Prevent re-fetching with initial state on component mount
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
+    const refetchProducts = async () => {
+      setIsRefetching(true);
+      try {
+        const response = await fetchProducts({
+          page: 1, // Always reset to page 1 on filter/sort change
+          limit: 8,
+          sortBy,
+          order,
+          brand: filters.brand || undefined, // Pass undefined if null
+          condition: filters.condition || undefined,
+        });
+        setProducts(response.data);
+        setTotalPages(response.totalPages);
+        setCurrentPage(1); // Reset pagination
+      } catch (error) {
+        console.error("Failed to refetch products:", error);
+      } finally {
+        setIsRefetching(false);
+      }
+    };
+
+    refetchProducts();
+  }, [filters, sortBy, order]); // Dependency array triggers the effect
+
+  /**
+   * Fetches the next page of products and appends them to the current list,
+   * respecting the current filter and sort settings.
    */
   const handleShowMore = async () => {
-    // Prevent fetching if already on the last page or another fetch is in progress.
-    if (currentPage >= totalPages || isLoading) return;
+    if (currentPage >= totalPages || isLoadingMore) return;
 
-    setIsLoading(true);
+    setIsLoadingMore(true);
     const nextPage = currentPage + 1;
     try {
-      // TODO: Pass the current filter and sort state to the fetchProducts call.
-      const response = await fetchProducts({ page: nextPage, limit: 8 });
+      const response = await fetchProducts({
+        page: nextPage,
+        limit: 8,
+        sortBy,
+        order,
+        brand: filters.brand || undefined,
+        condition: filters.condition || undefined,
+      });
       setProducts((prevProducts) => [...prevProducts, ...response.data]);
       setCurrentPage(nextPage);
     } catch (error) {
       console.error("Failed to load more products", error);
-      // TODO: Display a user-facing error message (e.g., a toast notification).
     } finally {
-      setIsLoading(false);
+      setIsLoadingMore(false);
     }
   };
 
-  /**
-   * A placeholder component that mimics the product grid structure, shown during
-   * data fetching to improve perceived performance and prevent layout shifts.
-   */
   const ProductGridSkeleton = () => (
-    // CHANGE #1: Updated grid classes for the skeleton
     <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
-      {Array.from({ length: 4 }).map((_, i) => (
+      {Array.from({ length: 8 }).map((_, i) => (
         <div key={`skeleton-${i}`} className="flex flex-col space-y-3">
           <Skeleton className="h-[225px] w-full rounded-xl" />
           <div className="space-y-2">
@@ -131,14 +156,23 @@ const ProductGrid = ({
                 </SheetDescription>
               </SheetHeader>
               <div className="py-4">
-                {/* TODO: Pass filter state and an update handler to the ProductFilters component. */}
-                <ProductFilters />
+                <ProductFilters
+                  selectedBrand={filters.brand}
+                  onBrandChange={(brand) =>
+                    setFilters((prev) => ({ ...prev, brand: brand || null }))
+                  }
+                  selectedCondition={filters.condition}
+                  onConditionChange={(
+                    condition: "new" | "used" | "restored" | "" | null
+                  ) =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      condition: condition,
+                    }))
+                  }
+                />
               </div>
-              <SheetFooter>
-                <Button type="submit" className="w-full">
-                  Apply Filters
-                </Button>
-              </SheetFooter>
+              {/* SheetFooter is removed as filters apply instantly */}
             </SheetContent>
           </Sheet>
 
@@ -153,32 +187,72 @@ const ProductGrid = ({
             <DropdownMenuContent align="start">
               <DropdownMenuLabel>Sort by</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {/* TODO: Wire up these menu items to update the sorting state. */}
-              <DropdownMenuItem>Newest</DropdownMenuItem>
-              <DropdownMenuItem>Price: Low to High</DropdownMenuItem>
-              <DropdownMenuItem>Price: High to Low</DropdownMenuItem>
-              <DropdownMenuItem>Rating</DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setSortBy("createdAt");
+                  setOrder("desc");
+                }}
+              >
+                Newest
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setSortBy("price");
+                  setOrder("asc");
+                }}
+              >
+                Price: Low to High
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setSortBy("price");
+                  setOrder("desc");
+                }}
+              >
+                Price: High to Low
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => {
+                  setSortBy("rating");
+                  setOrder("desc");
+                }}
+              >
+                Rating
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
 
-        {/* Product Grid Display */}
-        <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
-          {products.map((product) => (
-            <ProductCard key={product._id.toString()} product={product} />
-          ))}
-        </div>
+        {/* Product Grid Display with Loading and Empty States */}
+        {isRefetching ? (
+          <ProductGridSkeleton />
+        ) : products.length > 0 ? (
+          <div className="grid grid-cols-2 gap-4 md:mb-8 lg:grid-cols-3 xl:grid-cols-4">
+            {products.map((product) => (
+              <ProductCard key={product._id.toString()} product={product} />
+            ))}
+          </div>
+        ) : (
+          <div className="py-16 text-center">
+            <h3 className="text-xl font-semibold">No Products Found</h3>
+            <p className="text-muted-foreground">
+              Try adjusting your filters to find what you're looking for.
+            </p>
+          </div>
+        )}
 
-        {/* Loading State and Pagination */}
-        {isLoading && <ProductGridSkeleton />}
+        {/* Loading State for "Show More" */}
+        {isLoadingMore && <ProductGridSkeleton />}
+
+        {/* Pagination Button */}
         <div className="mt-8 w-full text-center">
-          {currentPage < totalPages && (
+          {!isRefetching && currentPage < totalPages && (
             <Button
               variant="outline"
               onClick={handleShowMore}
-              disabled={isLoading}
+              disabled={isLoadingMore}
             >
-              {isLoading ? "Loading..." : "Show More"}
+              {isLoadingMore ? "Loading..." : "Show More"}
             </Button>
           )}
         </div>
