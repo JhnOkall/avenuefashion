@@ -33,7 +33,7 @@ export default async function AdminLayout({
    * redirected to the sign-in page with a callback URL.
    */
   if (!session || session.user?.role !== "admin") {
-    redirect("/api/auth/signin?callbackUrl=/dashboard");
+    redirect("/");
   }
 
   return (
