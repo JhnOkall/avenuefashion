@@ -14,7 +14,6 @@ interface DiscountBannerProps {
   voucher: IVoucher | null;
 }
 
-// A pool of dynamic marketing messages.
 const marketingMessages = [
   "Flash Sale! Save big for a limited time.",
   "Your lucky day! A special discount, just for you.",
@@ -61,7 +60,7 @@ const marketingMessages = [
 
 /**
  * A dismissible, dynamic banner that displays a random promotional voucher.
- * It handles its own visibility and path exclusion.
+ * It handles its own visibility
  */
 export function DiscountBanner({ voucher }: DiscountBannerProps) {
   const [isVisible, setIsVisible] = useState(true);
@@ -72,28 +71,18 @@ export function DiscountBanner({ voucher }: DiscountBannerProps) {
   // Determine if the banner should be rendered based on multiple conditions.
   const shouldRender = voucher && isVisible && showBannerRandomly;
 
-  // Select a random marketing message once.
+  // Select a random marketing message once, ensuring no repeats until all are seen.
   const message = useMemo(() => {
     if (typeof window === "undefined") return marketingMessages[0];
-
     const key = "avenue_seen_messages";
     const seen = JSON.parse(localStorage.getItem(key) || "[]");
-
-    // Filter out seen messages
     const unseen = marketingMessages.filter((msg) => !seen.includes(msg));
-
-    // Reset if all seen
-    const pool = unseen.length > 0 ? unseen : marketingMessages;
-
-    // Pick random
+    const pool =
+      unseen.length > 0
+        ? unseen
+        : (localStorage.setItem(key, "[]"), marketingMessages); // Reset if all seen
     const randomMessage = pool[Math.floor(Math.random() * pool.length)];
-
-    // Save back to localStorage
-    const updatedSeen = seen.includes(randomMessage)
-      ? seen
-      : [...seen, randomMessage];
-    localStorage.setItem(key, JSON.stringify(updatedSeen));
-
+    localStorage.setItem(key, JSON.stringify([...seen, randomMessage]));
     return randomMessage;
   }, []);
 
@@ -102,8 +91,8 @@ export function DiscountBanner({ voucher }: DiscountBannerProps) {
   }
 
   return (
-    <Alert className="fixed top-0 left-0 right-0 z-100 w-full border-b rounded-none flex items-start justify-between p-3 bg-background">
-      <div className="flex items-start gap-4">
+    <Alert className="fixed top-0 left-0 right-0 z-[100] w-full border-b rounded-none flex items-start justify-between p-3 bg-background">
+      <div className="flex items-start gap-4 flex-grow min-w-0">
         <PartyPopper className="h-6 w-6 text-primary shrink-0 mt-1" />
         <div className="text-sm">
           <AlertTitle className="font-bold mb-1">{message}</AlertTitle>
@@ -117,7 +106,8 @@ export function DiscountBanner({ voucher }: DiscountBannerProps) {
           </AlertDescription>
         </div>
       </div>
-      <div className="flex items-center gap-2">
+
+      <div className="flex items-center gap-2 shrink-0 ml-4">
         <Button
           variant="ghost"
           size="icon"
