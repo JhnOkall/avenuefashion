@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+// 1. Import usePathname to detect the current route
+import { usePathname } from "next/navigation";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,11 +38,34 @@ interface Filters {
   condition: ("new" | "used" | "restored" | "") | null;
 }
 
+// 2. Add a helper function to shuffle an array (Fisher-Yates algorithm)
+// It returns a new shuffled array, preserving the original.
+const shuffleArray = <T,>(array: T[]): T[] => {
+  const shuffledArray = [...array]; // Create a copy to avoid mutating the prop
+  for (let i = shuffledArray.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffledArray[i], shuffledArray[j]] = [shuffledArray[j], shuffledArray[i]];
+  }
+  return shuffledArray;
+};
+
 const ProductGrid = ({
   initialProducts,
   initialTotalPages,
 }: ProductGridProps) => {
-  const [products, setProducts] = useState<IProduct[]>(initialProducts);
+  const pathname = usePathname();
+
+  // 3. Use a lazy initializer for useState to conditionally shuffle products
+  // This logic runs only once when the component first mounts.
+  const [products, setProducts] = useState<IProduct[]>(() => {
+    // If the user is on the homepage, shuffle the initial products.
+    if (pathname === "/") {
+      return shuffleArray(initialProducts);
+    }
+    // Otherwise, use the default order.
+    return initialProducts;
+  });
+
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(initialTotalPages);
   // Differentiated loading states for a better user experience
@@ -113,6 +138,7 @@ const ProductGrid = ({
         brand: filters.brand || undefined,
         condition: filters.condition || undefined,
       });
+      // Note: The new products will be sorted according to the current sort state, not randomly.
       setProducts((prevProducts) => [...prevProducts, ...response.data]);
       setCurrentPage(nextPage);
     } catch (error) {
@@ -172,7 +198,6 @@ const ProductGrid = ({
                   }
                 />
               </div>
-              {/* SheetFooter is removed as filters apply instantly */}
             </SheetContent>
           </Sheet>
 
