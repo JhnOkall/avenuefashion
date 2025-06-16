@@ -4,7 +4,7 @@ Avenue Fashion is a comprehensive, full-stack e-commerce platform built with a m
 
 This project also serves as a reference implementation for a multi-tenant payment architecture, where a central entity can manage payments for multiple sub-accounts (e.g., different brands or stores) using a single payment gateway account.
 
-![Avenue Fashion Screenshot](https://res.cloudinary.com/dli0mqabp/image/upload/v1750022154/Screenshot_2025-06-16_001503_icldjf.png)
+![Avenue Fashion Screenshot](https://res.cloudinary.com/dli0mqabp/image/upload/v1750080866/Screenshot_2025-06-16_001503_icldjf.png)
 
 ## Table of Contents
 

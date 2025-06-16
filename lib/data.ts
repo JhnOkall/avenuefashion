@@ -425,6 +425,32 @@ export const addToFavourites = async (productId: string): Promise<void> => {
   };
 
   /**
+ * Removes a product from the current authenticated user's list of favorites.
+ * @param {string} productId - The unique identifier of the product to remove.
+ * @returns {Promise<void>} A promise that resolves when the operation is successful.
+ * @throws Will throw an error if the API request fails.
+ */
+export const removeFromFavourites = async (productId: string): Promise<void> => {
+    try {
+      // We still need authentication to know which user is making the request.
+      const authOptions = await getAuthFetchOptions({
+        method: 'DELETE',
+        body: JSON.stringify({ productId }),
+      });
+      // The request is sent to the same endpoint, but with the DELETE method.
+      const response = await fetch(`${API_BASE_URL}/me/favourites`, authOptions);
+  
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to remove from favorites.');
+      }
+    } catch (error) {
+      console.error(`Error in removeFromFavourites for product ${productId}:`, error);
+      throw error;
+    }
+  };
+
+  /**
  * Updates the current authenticated user's details.
  * Can update the user's name and the phone number on their default address.
  *

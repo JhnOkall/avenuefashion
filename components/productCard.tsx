@@ -3,14 +3,15 @@
 import { useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ShoppingCart, Star } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { ShoppingCart, Star, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { IProduct } from "@/types";
-import { addToCart } from "@/lib/data";
+import { addToCart, removeFromFavourites } from "@/lib/data";
 
 /**
  * Formats a numeric price into a localized currency string.
@@ -43,6 +44,11 @@ interface ProductCardProps {
  */
 const ProductCard = ({ product }: ProductCardProps) => {
   const [isPending, startTransition] = useTransition();
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Determine if we are on the favourites page
+  const isFavouritesPage = pathname === "/me/favourites";
 
   /**
    * Handles adding the product to the shopping cart.
@@ -62,6 +68,25 @@ const ProductCard = ({ product }: ProductCardProps) => {
         toast.error("Failed to Add", {
           description:
             error.message || "There was an issue adding this item to the cart.",
+        });
+      }
+    });
+  };
+
+  const handleRemoveFromFavourites = () => {
+    startTransition(async () => {
+      try {
+        await removeFromFavourites(product._id.toString());
+        toast.success("Removed from Favourites", {
+          description: `${product.name} has been removed from your favourites.`,
+        });
+        // Refresh the page data. This re-fetches the favourites list
+        // and re-renders the parent component, effectively removing this card.
+        router.refresh();
+      } catch (error: any) {
+        toast.error("Failed to Remove", {
+          description:
+            error.message || "There was an issue removing this item.",
         });
       }
     });
@@ -136,15 +161,29 @@ const ProductCard = ({ product }: ProductCardProps) => {
             </p>
           )}
         </div>
-        <Button
-          size="sm"
-          onClick={handleAddToCart}
-          disabled={isPending}
-          className="w-full sm:w-auto"
-        >
-          <ShoppingCart className="-ms-1 mr-1 h-4 w-4 sm:-ms-2 sm:mr-2 sm:h-5 sm:w-5" />
-          {isPending ? "Adding..." : "Add to cart"}
-        </Button>
+
+        {isFavouritesPage ? (
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleRemoveFromFavourites}
+            disabled={isPending}
+            className="w-full sm:w-auto"
+          >
+            <Trash2 className="-ms-1 mr-1 h-4 w-4 sm:-ms-2 sm:mr-2 sm:h-5 sm:w-5" />
+            {isPending ? "Removing..." : "Remove"}
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={handleAddToCart}
+            disabled={isPending}
+            className="w-full sm:w-auto"
+          >
+            <ShoppingCart className="-ms-1 mr-1 h-4 w-4 sm:-ms-2 sm:mr-2 sm:h-5 sm:w-5" />
+            {isPending ? "Adding..." : "Add to cart"}
+          </Button>
+        )}
       </CardFooter>
     </Card>
   );
