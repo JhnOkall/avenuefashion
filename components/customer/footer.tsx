@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Package2, Instagram, Mail } from "lucide-react";
+import { ShoppingBag, Instagram, Mail } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
@@ -222,7 +222,7 @@ const Footer = () => {
               href="/"
               className="flex items-center gap-2 text-lg font-semibold md:text-base"
             >
-              <Package2 className="h-6 w-6 text-primary" />
+              <ShoppingBag className="h-6 w-6 text-primary" />
               <span>Avenue Fashion</span>
             </Link>
 

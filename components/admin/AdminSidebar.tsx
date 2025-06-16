@@ -9,7 +9,7 @@ import {
   Users,
   Tag,
   MapPin,
-  Package2,
+  ShoppingBag,
   ArrowLeft,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -55,7 +55,7 @@ export const AdminSidebar = () => {
             href="/dashboard"
             className="flex items-center gap-2 font-semibold"
           >
-            <Package2 className="h-6 w-6 text-primary" />
+            <ShoppingBag className="h-6 w-6 text-primary" />
             <span>Avenue Admin</span>
           </Link>
         </div>

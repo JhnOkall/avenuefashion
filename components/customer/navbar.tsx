@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSession, signOut, signIn } from "next-auth/react";
-import { Package2, ShoppingCart, User, ChevronDown, X } from "lucide-react";
+import { ShoppingBag, ShoppingCart, User, ChevronDown, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -46,7 +46,7 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 md:px-6">
       <Link href="/" className="lg:hidden">
-        <Package2 className="h-6 w-6 text-primary" />
+        <ShoppingBag className="h-6 w-6 text-primary" />
       </Link>
       <div className="flex items-center gap-2 lg:gap-6">
         {/* Desktop Logo */}
