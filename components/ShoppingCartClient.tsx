@@ -26,9 +26,6 @@ import { toast } from "sonner";
 import { ICart, ICartItem, IProduct } from "@/types";
 import { removeCartItem, updateCartItem, addToFavourites } from "@/lib/data";
 
-/**
- * Formats a number into a currency string.
- */
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
     price
@@ -38,63 +35,55 @@ const formatPrice = (price: number) =>
 // SUB-COMPONENTS
 // =================================================================
 
-/**
- * Renders a quantity input control with buttons to increment and decrement.
- */
 const QuantityInput = ({
   item,
   onUpdate,
 }: {
   item: ICartItem;
   onUpdate: (productId: string, quantity: number, variantId?: string) => void;
-}) => {
-  return (
-    <div className="flex items-center">
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-6 w-6"
-        onClick={() =>
-          onUpdate(
-            item.product._id.toString(),
-            item.quantity - 1,
-            item.variantId?.toString()
-          )
-        }
-        aria-label="Decrease quantity"
-        disabled={item.quantity <= 1}
-      >
-        <Minus className="h-3 w-3" />
-      </Button>
-      <Input
-        type="text"
-        value={item.quantity}
-        className="h-6 w-10 border-0 bg-transparent text-center focus-visible:ring-0"
-        readOnly
-        aria-label="Current quantity"
-      />
-      <Button
-        variant="outline"
-        size="icon"
-        className="h-6 w-6"
-        onClick={() =>
-          onUpdate(
-            item.product._id.toString(),
-            item.quantity + 1,
-            item.variantId?.toString()
-          )
-        }
-        aria-label="Increase quantity"
-      >
-        <Plus className="h-3 w-3" />
-      </Button>
-    </div>
-  );
-};
+}) => (
+  <div className="flex items-center">
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-6 w-6"
+      onClick={() =>
+        onUpdate(
+          item.product._id.toString(),
+          item.quantity - 1,
+          item.variantId?.toString()
+        )
+      }
+      aria-label="Decrease quantity"
+      disabled={item.quantity <= 1}
+    >
+      <Minus className="h-3 w-3" />
+    </Button>
+    <Input
+      type="text"
+      value={item.quantity}
+      className="h-6 w-10 border-0 bg-transparent text-center focus-visible:ring-0"
+      readOnly
+      aria-label="Current quantity"
+    />
+    <Button
+      variant="outline"
+      size="icon"
+      className="h-6 w-6"
+      onClick={() =>
+        onUpdate(
+          item.product._id.toString(),
+          item.quantity + 1,
+          item.variantId?.toString()
+        )
+      }
+      aria-label="Increase quantity"
+    >
+      <Plus className="h-3 w-3" />
+    </Button>
+  </div>
+);
 
-/**
- * Renders a card displaying details for a single item in the shopping cart.
- */
 const CartItemCard = ({
   item,
   onUpdate,
@@ -110,7 +99,6 @@ const CartItemCard = ({
     typeof item.product === "object" && "slug" in item.product
       ? (item.product as IProduct).slug
       : "";
-
   return (
     <Card>
       <CardContent className="p-4 md:p-6">
@@ -135,6 +123,7 @@ const CartItemCard = ({
               >
                 {item.name}
               </Link>
+              {/* FIX: Treat variantOptions as a plain object */}
               {item.variantOptions && (
                 <p className="text-sm text-muted-foreground">
                   {Object.entries(item.variantOptions)
@@ -181,20 +170,12 @@ const CartItemCard = ({
   );
 };
 
-/**
- * Renders a card displaying the order summary.
- */
 const OrderSummaryCard = ({ cart }: { cart: ICart | null }) => {
   const router = useRouter();
   const subtotal =
     cart?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) ?? 0;
-  const tax = subtotal * 0.16; // 16% VAT
+  const tax = subtotal * 0.16;
   const total = subtotal + tax;
-
-  const handleCheckout = () => {
-    router.push("/checkout");
-  };
-
   return (
     <Card>
       <CardHeader>
@@ -220,7 +201,7 @@ const OrderSummaryCard = ({ cart }: { cart: ICart | null }) => {
           size="lg"
           className="w-full"
           disabled={!cart || cart.items.length === 0}
-          onClick={handleCheckout}
+          onClick={() => router.push("/checkout")}
         >
           Proceed to Checkout
         </Button>
@@ -234,26 +215,56 @@ const OrderSummaryCard = ({ cart }: { cart: ICart | null }) => {
   );
 };
 
+const RecommendedProducts = ({ products }: { products: IProduct[] }) => (
+  <div className="mt-16">
+    <h3 className="text-xl font-semibold text-foreground">
+      You might also like
+    </h3>
+    <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {products.map((product) => (
+        <Link
+          key={product._id.toString()}
+          href={`/${product.slug}`}
+          className="group"
+        >
+          <Card className="overflow-hidden">
+            <CardContent className="p-0">
+              <div className="relative aspect-square">
+                <Image
+                  src={product.images[0]}
+                  alt={product.name}
+                  fill
+                  className="object-cover transition-transform group-hover:scale-105"
+                />
+              </div>
+            </CardContent>
+            <CardFooter className="p-4 flex-col items-start">
+              <h4 className="font-medium text-sm">{product.name}</h4>
+              <p className="text-lg font-bold">{formatPrice(product.price)}</p>
+            </CardFooter>
+          </Card>
+        </Link>
+      ))}
+    </div>
+  </div>
+);
+
 // =================================================================
 // MAIN COMPONENT
 // =================================================================
 
 interface ShoppingCartClientProps {
   initialCart: ICart | null;
+  recommendedProducts: IProduct[]; // Added back for build fix
 }
 
-/**
- * A client component that renders the main shopping cart interface.
- */
 export const ShoppingCartClient = ({
   initialCart,
+  recommendedProducts,
 }: ShoppingCartClientProps) => {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  /**
-   * Handles updating the quantity of a cart item.
-   */
   const handleUpdate = (
     productId: string,
     quantity: number,
@@ -270,15 +281,12 @@ export const ShoppingCartClient = ({
         router.refresh();
       } catch (error: any) {
         toast.error("Error updating cart", {
-          description: error.message || "Could not update the item quantity.",
+          description: error.message || "Could not update item quantity.",
         });
       }
     });
   };
 
-  /**
-   * Handles removing a cart item completely.
-   */
   const handleRemove = (productId: string, variantId?: string) => {
     startTransition(async () => {
       try {
@@ -287,26 +295,20 @@ export const ShoppingCartClient = ({
         router.refresh();
       } catch (error: any) {
         toast.error("Error removing item", {
-          description: error.message || "Could not remove the item from cart.",
+          description: error.message || "Could not remove item from cart.",
         });
       }
     });
   };
 
-  /**
-   * Handles adding a product to the user's favorites list.
-   */
   const handleAddToFavourites = (productId: string) => {
     startTransition(async () => {
       try {
         await addToFavourites(productId);
-        toast.success("Added to Favorites", {
-          description:
-            "The item has been successfully added to your favorites.",
-        });
+        toast.success("Added to Favorites");
       } catch (error: any) {
         toast.error("Failed to Add", {
-          description: error.message || "Could not add the item to favorites.",
+          description: error.message || "Could not add item to favorites.",
         });
       }
     });
@@ -343,7 +345,7 @@ export const ShoppingCartClient = ({
                   Your cart is empty
                 </h3>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  Looks like you haven't added anything to your cart yet.
+                  Looks like you haven't added anything yet.
                 </p>
                 <Button asChild className="mt-6">
                   <Link href="/">Continue Shopping</Link>
@@ -360,6 +362,9 @@ export const ShoppingCartClient = ({
             </div>
           </div>
         </div>
+        {recommendedProducts.length > 0 && (
+          <RecommendedProducts products={recommendedProducts} />
+        )}
       </div>
     </section>
   );

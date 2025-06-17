@@ -56,7 +56,7 @@ export default async function CartPage() {
          */}
         <ShoppingCartClient
           initialCart={initialCart}
-          /* recommendedProducts={recommendedProductsData.data} */
+          recommendedProducts={recommendedProductsData.data}
         />
       </Suspense>
     );
