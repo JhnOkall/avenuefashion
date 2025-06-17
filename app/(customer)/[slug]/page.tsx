@@ -108,10 +108,10 @@ export default async function ProductPage({
     }
 
     // Concurrently fetch reviews ONLY if the product exists.
-    const initialReviewsData = await fetchReviewsByProduct(
-      product._id.toString(),
-      { page: 1, limit: 3 }
-    );
+    const initialReviewsData = await fetchReviewsByProduct(product.slug, {
+      page: 1,
+      limit: 3,
+    });
 
     return (
       <Suspense fallback={<ProductPageSkeleton />}>
