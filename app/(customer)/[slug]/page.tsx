@@ -1,4 +1,3 @@
-// app/(customer)/[slug]/page.tsx
 import { ProductDetails } from "@/components/productDetails";
 import { fetchProductBySlug, fetchReviewsByProduct } from "@/lib/data";
 import { notFound } from "next/navigation";

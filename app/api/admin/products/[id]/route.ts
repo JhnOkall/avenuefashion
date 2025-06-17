@@ -1,4 +1,3 @@
-// app\api\admin\products\[id]\route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';

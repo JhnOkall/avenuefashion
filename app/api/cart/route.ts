@@ -1,4 +1,3 @@
-// app/api/cart/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import { headers } from 'next/headers';
 import { auth } from '@/auth';

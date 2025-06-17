@@ -1,4 +1,3 @@
-// app/api/orders/route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';

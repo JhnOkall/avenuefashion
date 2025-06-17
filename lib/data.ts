@@ -1,4 +1,3 @@
-// lib/data.ts
 import { IProduct, IBrand, IOrder, IAddress, IReview, ICart, ICity, ICounty, ICountry, IUser, IVoucher } from "@/types";
 
 /**
