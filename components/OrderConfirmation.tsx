@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Truck, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,20 +12,33 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { IOrder } from "@/types";
+import { IOrder, IOrderItem } from "@/types";
+
+/**
+ * Formats a number into a currency string.
+ */
+const formatPrice = (price: number) =>
+  new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
+    price
+  );
 
 /**
  * A reusable sub-component for displaying a labeled piece of information.
- *
- * @param {object} props - The component props.
- * @param {string} props.label - The label or title for the detail.
- * @param {string} props.value - The value of the detail to be displayed.
- * @returns {JSX.Element} A dl/dt/dd element pair for semantic display of data.
  */
-const DetailItem = ({ label, value }: { label: string; value: string }) => (
-  <dl className="sm:flex sm:items-center sm:justify-between sm:gap-4">
+const DetailItem = ({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) => (
+  <dl className="flex items-center justify-between gap-4">
     <dt className="font-normal text-muted-foreground">{label}</dt>
-    <dd className="font-medium text-foreground sm:text-end">{value}</dd>
+    <dd className={`font-medium text-foreground text-end ${valueClassName}`}>
+      {value}
+    </dd>
   </dl>
 );
 
@@ -32,17 +46,12 @@ const DetailItem = ({ label, value }: { label: string; value: string }) => (
  * Defines the props required by the OrderConfirmation component.
  */
 interface OrderConfirmationProps {
-  /**
-   * The order object containing all details of the successfully placed order.
-   */
   order: IOrder;
 }
 
 /**
- * A client component that displays a confirmation message and a summary of a
- * successfully placed order. This is typically the final step in the checkout process.
- *
- * @param {OrderConfirmationProps} props - The props for the component.
+ * A client component that displays a confirmation message and a detailed summary
+ * of a successfully placed order.
  */
 const OrderConfirmation = ({ order }: OrderConfirmationProps) => {
   return (
@@ -54,12 +63,10 @@ const OrderConfirmation = ({ order }: OrderConfirmationProps) => {
           </h2>
           <p className="mt-2 text-muted-foreground">
             Your order{" "}
-            {/* The link navigates to the specific order tracking page */}
             <Button variant="link" asChild className="h-auto p-0 text-base">
               <Link href={`/me/orders/${order.orderId}`}>{order.orderId}</Link>
             </Button>{" "}
-            will be processed within 24 hours. We'll notify you by email once it
-            has shipped.
+            will be processed within 24 hours.
           </p>
         </div>
 
@@ -67,31 +74,103 @@ const OrderConfirmation = ({ order }: OrderConfirmationProps) => {
           <CardHeader>
             <CardTitle>Order Summary</CardTitle>
             <CardDescription>
-              Here are the details of your recent purchase.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <DetailItem
-              label="Date"
-              value={new Date(order.createdAt).toLocaleDateString("en-KE", {
+              Placed on{" "}
+              {new Date(order.createdAt).toLocaleDateString("en-KE", {
                 year: "numeric",
                 month: "long",
                 day: "numeric",
               })}
-            />
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {/* Items List */}
+            <div className="space-y-4">
+              <h3 className="font-semibold">Items Ordered</h3>
+              {order.items.map((item: IOrderItem) => (
+                <div
+                  key={`${item.product}-${item.variantId}`}
+                  className="flex items-start gap-4"
+                >
+                  <div className="relative h-16 w-16 shrink-0 rounded-md border">
+                    <Image
+                      src={item.imageUrl}
+                      alt={item.name}
+                      fill
+                      className="object-contain"
+                      sizes="64px"
+                    />
+                  </div>
+                  <div className="flex-grow">
+                    <p className="font-medium">{item.name}</p>
+                    {item.variantOptions && (
+                      <p className="text-sm text-muted-foreground">
+                        {Object.entries(item.variantOptions)
+                          .map(([key, value]) => `${key}: ${value}`)
+                          .join(", ")}
+                      </p>
+                    )}
+                    <p className="text-sm text-muted-foreground">
+                      Qty: {item.quantity}
+                    </p>
+                  </div>
+                  <p className="font-medium">
+                    {formatPrice(item.price * item.quantity)}
+                  </p>
+                </div>
+              ))}
+            </div>
             <Separator />
-            <DetailItem label="Payment Method" value={order.payment.method} />
+            {/* Pricing Details */}
+            <div className="space-y-2">
+              <h3 className="font-semibold">Pricing Details</h3>
+              <DetailItem
+                label="Subtotal"
+                value={formatPrice(order.pricing.subtotal)}
+              />
+              <DetailItem
+                label="Shipping"
+                value={formatPrice(order.pricing.shipping)}
+              />
+              <DetailItem
+                label="Tax (16%)"
+                value={formatPrice(order.pricing.tax)}
+              />
+              {order.pricing.discount > 0 && (
+                <DetailItem
+                  label="Discount"
+                  value={`-${formatPrice(order.pricing.discount)}`}
+                  valueClassName="text-green-600"
+                />
+              )}
+              <Separator className="my-2" />
+              <DetailItem
+                label="Total"
+                value={formatPrice(order.pricing.total)}
+                valueClassName="text-lg font-bold"
+              />
+            </div>
             <Separator />
-            <DetailItem label="Name" value={order.shippingDetails.name} />
-            <Separator />
-            {/* TODO: The address is a single string. For better data structure and display flexibility, consider refactoring `shippingDetails.address` into a structured object (e.g., { street, city, country, postalCode }). */}
-            <DetailItem label="Address" value={order.shippingDetails.address} />
-            <Separator />
-            <DetailItem label="Phone" value={order.shippingDetails.phone} />
+            {/* Shipping and Payment Details */}
+            <div className="space-y-2">
+              <h3 className="font-semibold">Shipping & Payment</h3>
+              <DetailItem
+                label="Shipping to"
+                value={order.shippingDetails.name}
+              />
+              <DetailItem
+                label="Address"
+                value={order.shippingDetails.address}
+              />
+              <DetailItem
+                label="Payment Method"
+                value={order.payment.method
+                  .replace("-", " ")
+                  .replace(/\b\w/g, (l) => l.toUpperCase())}
+              />
+            </div>
           </CardContent>
         </Card>
 
-        {/* Action buttons for post-order navigation */}
         <div className="flex flex-col items-center justify-center gap-2 sm:flex-row sm:gap-4">
           <Button asChild size="lg">
             <Link href={`/me/orders/${order.orderId}`}>

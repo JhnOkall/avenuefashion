@@ -1,3 +1,4 @@
+// app\api\admin\products\[id]\route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
@@ -35,9 +36,11 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       return NextResponse.json({ message: 'Invalid Product ID' }, { status: 400 });
     }
 
-    // Parses the JSON body from the incoming PATCH request.
-    // The body can contain any field to update, including `{ isActive: false }` for soft-deletes.
-    // TODO: Implement server-side validation (e.g., using Zod) to ensure the request body has the correct shape and data types before processing.
+    /**
+     * Parses the JSON body from the incoming PATCH request.
+     * This can now include updates to the `variationSchema` and `variants` arrays.
+     * For example, an admin could add a new color option or change a variant's price.
+     */
     const body = await req.json();
     
     /**

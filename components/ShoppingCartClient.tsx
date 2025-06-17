@@ -1,3 +1,4 @@
+// components/ShoppingCartClient.tsx
 "use client";
 
 import React, { useTransition } from "react";
@@ -24,7 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { ICart, ICartItem, IProduct } from "@/types";
-// FIX: Import the new addToFavourites function
 import { removeCartItem, updateCartItem, addToFavourites } from "@/lib/data";
 
 /**
@@ -47,17 +47,23 @@ const QuantityInput = ({
   onUpdate,
 }: {
   item: ICartItem;
-  onUpdate: (id: string, qty: number) => void;
+  onUpdate: (productId: string, quantity: number, variantId?: string) => void;
 }) => {
-  // ... (component code remains the same)
   return (
     <div className="flex items-center">
       <Button
         variant="outline"
         size="icon"
         className="h-6 w-6"
-        onClick={() => onUpdate(item.product._id.toString(), item.quantity - 1)}
+        onClick={() =>
+          onUpdate(
+            item.product._id.toString(),
+            item.quantity - 1,
+            item.variantId?.toString()
+          )
+        }
         aria-label="Decrease quantity"
+        disabled={item.quantity <= 1}
       >
         <Minus className="h-3 w-3" />
       </Button>
@@ -72,7 +78,13 @@ const QuantityInput = ({
         variant="outline"
         size="icon"
         className="h-6 w-6"
-        onClick={() => onUpdate(item.product._id.toString(), item.quantity + 1)}
+        onClick={() =>
+          onUpdate(
+            item.product._id.toString(),
+            item.quantity + 1,
+            item.variantId?.toString()
+          )
+        }
         aria-label="Increase quantity"
       >
         <Plus className="h-3 w-3" />
@@ -88,12 +100,12 @@ const CartItemCard = ({
   item,
   onUpdate,
   onRemove,
-  onAddToFavourites, // FIX: Add new prop for the handler
+  onAddToFavourites,
 }: {
   item: ICartItem;
-  onUpdate: (id: string, qty: number) => void;
-  onRemove: (id: string) => void;
-  onAddToFavourites: (id: string) => void; // FIX: Add new prop type
+  onUpdate: (productId: string, quantity: number, variantId?: string) => void;
+  onRemove: (productId: string, variantId?: string) => void;
+  onAddToFavourites: (productId: string) => void;
 }) => {
   const productSlug =
     typeof item.product === "object" && "slug" in item.product
@@ -110,37 +122,48 @@ const CartItemCard = ({
               className="relative h-20 w-20 shrink-0"
             >
               <Image
-                className="object-contain"
+                className="rounded-md object-contain"
                 src={item.imageUrl}
                 alt={item.name}
                 fill
                 sizes="(max-width: 768px) 100vw, 80px"
               />
             </Link>
-            <div className="min-w-0 flex-1 space-y-3">
+            <div className="min-w-0 flex-1 space-y-2">
               <Link
                 href={productSlug ? `/${productSlug}` : "#"}
                 className="text-base font-medium text-foreground hover:underline"
               >
                 {item.name}
               </Link>
+              {item.variantOptions && (
+                <p className="text-sm text-muted-foreground">
+                  {Object.entries(item.variantOptions)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(", ")}
+                </p>
+              )}
               <div className="flex items-center gap-4">
-                {/* FIX: Implement 'Add to Favorites' functionality */}
                 <Button
                   variant="ghost"
                   size="sm"
                   className="p-0 text-sm font-medium text-muted-foreground hover:text-foreground"
                   onClick={() => onAddToFavourites(item.product._id.toString())}
                 >
-                  <Heart className="mr-1.5 h-5 w-5" /> Add to Favorites
+                  <Heart className="mr-1.5 h-4 w-4" /> Add to Favorites
                 </Button>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="p-0 text-sm font-medium text-destructive hover:text-destructive/90"
-                  onClick={() => onRemove(item.product._id.toString())}
+                  onClick={() =>
+                    onRemove(
+                      item.product._id.toString(),
+                      item.variantId?.toString()
+                    )
+                  }
                 >
-                  <Trash2 className="mr-1.5 h-5 w-5" /> Remove
+                  <Trash2 className="mr-1.5 h-4 w-4" /> Remove
                 </Button>
               </div>
             </div>
@@ -163,7 +186,6 @@ const CartItemCard = ({
  * Renders a card displaying the order summary.
  */
 const OrderSummaryCard = ({ cart }: { cart: ICart | null }) => {
-  // ... (component code remains the same)
   const router = useRouter();
   const subtotal =
     cart?.items.reduce((acc, item) => acc + item.price * item.quantity, 0) ?? 0;
@@ -219,7 +241,6 @@ const OrderSummaryCard = ({ cart }: { cart: ICart | null }) => {
 
 interface ShoppingCartClientProps {
   initialCart: ICart | null;
-  recommendedProducts: IProduct[];
 }
 
 /**
@@ -234,15 +255,18 @@ export const ShoppingCartClient = ({
   /**
    * Handles updating the quantity of a cart item.
    */
-  const handleUpdate = (productId: string, quantity: number) => {
-    // ... (function code remains the same)
+  const handleUpdate = (
+    productId: string,
+    quantity: number,
+    variantId?: string
+  ) => {
     startTransition(async () => {
       try {
         if (quantity <= 0) {
-          await removeCartItem(productId);
+          await removeCartItem(productId, variantId);
           toast.success("Item removed from cart.");
         } else {
-          await updateCartItem(productId, quantity);
+          await updateCartItem(productId, quantity, variantId);
         }
         router.refresh();
       } catch (error: any) {
@@ -256,11 +280,10 @@ export const ShoppingCartClient = ({
   /**
    * Handles removing a cart item completely.
    */
-  const handleRemove = (productId: string) => {
-    // ... (function code remains the same)
+  const handleRemove = (productId: string, variantId?: string) => {
     startTransition(async () => {
       try {
-        await removeCartItem(productId);
+        await removeCartItem(productId, variantId);
         toast.success("Item removed from cart.");
         router.refresh();
       } catch (error: any) {
@@ -272,7 +295,7 @@ export const ShoppingCartClient = ({
   };
 
   /**
-   * FIX: Handles adding a product to the user's favorites list.
+   * Handles adding a product to the user's favorites list.
    */
   const handleAddToFavourites = (productId: string) => {
     startTransition(async () => {
@@ -282,9 +305,6 @@ export const ShoppingCartClient = ({
           description:
             "The item has been successfully added to your favorites.",
         });
-        // Note: No router.refresh() is needed here unless you want to
-        // visually change the button state (e.g., to a filled heart),
-        // which would require more complex state management.
       } catch (error: any) {
         toast.error("Failed to Add", {
           description: error.message || "Could not add the item to favorites.",
@@ -307,11 +327,13 @@ export const ShoppingCartClient = ({
               <div className="space-y-6">
                 {initialCart.items.map((item) => (
                   <CartItemCard
-                    key={item.product._id.toString()}
+                    key={`${item.product._id.toString()}-${
+                      item.variantId?.toString() || "no-variant"
+                    }`}
                     item={item}
                     onUpdate={handleUpdate}
                     onRemove={handleRemove}
-                    onAddToFavourites={handleAddToFavourites} // FIX: Pass the new handler
+                    onAddToFavourites={handleAddToFavourites}
                   />
                 ))}
               </div>
@@ -324,6 +346,9 @@ export const ShoppingCartClient = ({
                 <p className="mt-2 text-sm text-muted-foreground">
                   Looks like you haven't added anything to your cart yet.
                 </p>
+                <Button asChild className="mt-6">
+                  <Link href="/">Continue Shopping</Link>
+                </Button>
               </div>
             )}
           </div>

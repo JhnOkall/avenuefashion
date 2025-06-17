@@ -20,17 +20,48 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { IBrand, IProduct } from "@/types";
+import { IBrand, IProduct, IProductVariant } from "@/types";
 import {
   createBrand,
   createProduct,
   fetchBrands,
   updateProduct,
 } from "@/lib/data";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { ImageUploader } from "@/components/admin/ImageUploader";
+
+// --- DEDICATED FORM STATE TYPES ---
+// These types represent the data structure within the form, which can differ
+// slightly from the strict database models (e.g., brand is a string ID).
+interface VariationSchemaFormState {
+  name: string;
+  options: string[];
+}
+interface VariantFormState extends Omit<IProductVariant, "_id" | "options"> {
+  options: Map<string, string>;
+}
+interface ProductFormState {
+  name: string;
+  description: string[];
+  brand: string; // Brand is a string ID in the form
+  condition: "new" | "used" | "restored";
+  images: string[];
+  price: number;
+  stock: number;
+  variationSchema: VariationSchemaFormState[];
+  variants: VariantFormState[];
+}
 
 interface ProductFormProps {
   isOpen: boolean;
@@ -38,120 +69,131 @@ interface ProductFormProps {
   product: IProduct | null;
 }
 
-const initialFormState = {
+// Generate all combinations of variation options
+const generateCombinations = (
+  schema: VariationSchemaFormState[]
+): Map<string, string>[] => {
+  if (!schema || schema.length === 0) return [];
+  const [first, ...rest] = schema;
+  if (!first || !first.options || first.options.length === 0)
+    return generateCombinations(rest);
+
+  const restCombinations = generateCombinations(rest);
+
+  return first.options.flatMap((option) => {
+    const newCombination = new Map<string, string>();
+    newCombination.set(first.name, option);
+
+    if (restCombinations.length === 0) {
+      return [newCombination];
+    }
+
+    return restCombinations.map((restCombination) => {
+      return new Map([...newCombination, ...restCombination]);
+    });
+  });
+};
+
+const initialFormState: ProductFormState = {
   name: "",
-  price: 0,
-  originalPrice: 0,
-  discount: 0,
   description: [""],
   brand: "",
-  imageUrl: "/placeholder.svg",
-  condition: "new" as "new" | "used" | "restored",
+  condition: "new",
+  images: [],
+  stock: 0,
+  price: 0,
+  variationSchema: [],
+  variants: [],
 };
 
 export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
   const router = useRouter();
-  const [formData, setFormData] = useState(initialFormState);
+  const [productType, setProductType] = useState<"simple" | "variable">(
+    "simple"
+  );
+  const [formData, setFormData] = useState<ProductFormState>(initialFormState);
   const [brands, setBrands] = useState<IBrand[]>([]);
   const [isSubmitting, startTransition] = useTransition();
-
-  // --- NEW: State to track the last edited price-related field ---
-  const [lastChangedField, setLastChangedField] = useState<
-    "price" | "originalPrice" | "discount" | null
-  >(null);
-
   const [isBrandDialogOpen, setIsBrandDialogOpen] = useState(false);
   const [newBrandName, setNewBrandName] = useState("");
   const [isCreatingBrand, startBrandCreationTransition] = useTransition();
 
+  // Populate form on edit
   useEffect(() => {
     fetchBrands().then(setBrands);
-  }, []);
-
-  useEffect(() => {
     if (product) {
       setFormData({
         name: product.name,
-        price: product.price,
-        originalPrice: product.originalPrice ?? 0,
-        discount: product.discount ?? 0,
         description: product.description,
         brand:
           typeof product.brand === "string"
             ? product.brand
             : product.brand._id.toString(),
-        imageUrl: product.imageUrl,
         condition: product.condition,
+        images: product.images,
+        price: product.price || 0,
+        stock: product.stock || 0,
+        variationSchema:
+          product.variationSchema?.map(({ name, options }) => ({
+            name,
+            options,
+          })) || [],
+        variants:
+          product.variants?.map((v) => ({
+            ...v,
+            options: new Map(Object.entries(v.options)),
+          })) || [],
       });
+      setProductType(
+        product.variants && product.variants.length > 0 ? "variable" : "simple"
+      );
     } else {
       setFormData(initialFormState);
+      setProductType("simple");
     }
-    // Reset the last changed field when the dialog opens/closes or product changes
-    setLastChangedField(null);
   }, [product, isOpen]);
 
-  // --- NEW: useEffect to handle automatic price calculations ---
+  // Generate variants when schema changes
   useEffect(() => {
-    // Don't run calculations on initial load
-    if (!lastChangedField) return;
-
-    const price = parseFloat(String(formData.price)) || 0;
-    const originalPrice = parseFloat(String(formData.originalPrice)) || 0;
-    const discount = parseFloat(String(formData.discount)) || 0;
-
-    const newValues: Partial<typeof formData> = {};
-
-    // Logic: If user changed price or original price, calculate the discount.
     if (
-      (lastChangedField === "price" || lastChangedField === "originalPrice") &&
-      originalPrice > 0 &&
-      price > 0 &&
-      originalPrice > price
+      productType !== "variable" ||
+      !formData.variationSchema ||
+      formData.variationSchema.length === 0
     ) {
-      const calculatedDiscount = Math.round(
-        ((originalPrice - price) / originalPrice) * 100
-      );
-      if (calculatedDiscount !== discount) {
-        newValues.discount = calculatedDiscount;
-      }
-    }
-    // Logic: If user changed the discount, calculate the sale price.
-    else if (
-      lastChangedField === "discount" &&
-      originalPrice > 0 &&
-      discount > 0 &&
-      discount < 100
-    ) {
-      const calculatedPrice = parseFloat(
-        (originalPrice * (1 - discount / 100)).toFixed(2)
-      );
-      if (calculatedPrice !== price) {
-        newValues.price = calculatedPrice;
-      }
+      setFormData((prev) => ({ ...prev, variants: [] }));
+      return;
     }
 
-    // Update the state if any new values were calculated
-    if (Object.keys(newValues).length > 0) {
-      setFormData((prev) => ({ ...prev, ...newValues }));
-    }
-  }, [
-    formData.price,
-    formData.originalPrice,
-    formData.discount,
-    lastChangedField,
-  ]);
+    const combinations = generateCombinations(formData.variationSchema);
+    const newVariants = combinations.map((combo) => {
+      const existingVariant = formData.variants?.find((v) => {
+        if (v.options.size !== combo.size) return false;
+        return Array.from(combo.keys()).every(
+          (key) => combo.get(key) === v.options.get(key)
+        );
+      });
 
-  // --- MODIFIED: The generic handleChange now also tracks the last changed field ---
+      return (
+        existingVariant || {
+          options: combo,
+          price: 0,
+          stock: 0,
+          sku: "",
+          images: [],
+        }
+      );
+    });
+    setFormData((prev) => ({
+      ...prev,
+      variants: newVariants as VariantFormState[],
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formData.variationSchema, productType]);
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { id, value } = e.target;
-
-    // Track which price-related field was changed
-    if (["price", "originalPrice", "discount"].includes(id)) {
-      setLastChangedField(id as "price" | "originalPrice" | "discount");
-    }
-
     if (id === "description") {
       setFormData((prev) => ({ ...prev, description: value.split("\n") }));
     } else {
@@ -163,57 +205,47 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
     setFormData((prev) => ({ ...prev, [id]: value }));
   };
 
-  const handleImageUpload = (url: string) => {
-    setFormData((prev) => ({ ...prev, imageUrl: url }));
+  const addVariationType = () => {
+    setFormData((prev) => ({
+      ...prev,
+      variationSchema: [
+        ...(prev.variationSchema || []),
+        { name: "", options: [] },
+      ],
+    }));
   };
 
-  const handleSubmit = async () => {
-    startTransition(async () => {
-      try {
-        const { price, originalPrice, discount, ...rest } = formData;
-        const finalPrice = Number(price);
-        const finalOriginalPrice = Number(originalPrice);
+  const updateVariationType = (
+    index: number,
+    name: string,
+    options: string
+  ) => {
+    const newSchema = [...(formData.variationSchema || [])];
+    newSchema[index] = {
+      name,
+      options: options
+        .split(",")
+        .map((o) => o.trim())
+        .filter(Boolean),
+    };
+    setFormData((prev) => ({ ...prev, variationSchema: newSchema }));
+  };
 
-        // Final validation: Ensure originalPrice is set if there's a discount
-        if (finalPrice > 0 && finalPrice >= finalOriginalPrice) {
-          toast.error("Invalid Prices", {
-            description: "Sale Price must be less than Original Price.",
-          });
-          return;
-        }
+  const removeVariationType = (index: number) => {
+    const newSchema = (formData.variationSchema || []).filter(
+      (_, i) => i !== index
+    );
+    setFormData((prev) => ({ ...prev, variationSchema: newSchema }));
+  };
 
-        const submissionData = {
-          ...rest,
-          price: finalPrice,
-          originalPrice:
-            finalOriginalPrice > 0 ? finalOriginalPrice : undefined,
-          discount:
-            finalOriginalPrice > 0 && finalPrice > 0
-              ? Math.round(
-                  ((finalOriginalPrice - finalPrice) / finalOriginalPrice) * 100
-                )
-              : undefined,
-          brand: formData.brand as any,
-        };
-
-        if (product) {
-          await updateProduct(product._id.toString(), submissionData);
-          toast.success("Success", {
-            description: "Product updated successfully.",
-          });
-        } else {
-          await createProduct(submissionData);
-          toast.success("Success", {
-            description: "Product created successfully.",
-          });
-        }
-
-        onClose();
-        router.refresh();
-      } catch (error: any) {
-        toast.error("Operation Failed", { description: error.message });
-      }
-    });
+  const handleVariantChange = (
+    index: number,
+    field: keyof VariantFormState,
+    value: any
+  ) => {
+    const newVariants = [...(formData.variants || [])];
+    (newVariants[index] as any)[field] = value;
+    setFormData((prev) => ({ ...prev, variants: newVariants }));
   };
 
   const handleCreateBrand = async () => {
@@ -224,9 +256,7 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
     startBrandCreationTransition(async () => {
       try {
         const newBrand = await createBrand({ name: newBrandName });
-        toast.success("Brand Created", {
-          description: `Brand "${newBrand.name}" was successfully created.`,
-        });
+        toast.success("Brand Created");
         setBrands((prev) => [...prev, newBrand]);
         setFormData((prev) => ({ ...prev, brand: newBrand._id.toString() }));
         setIsBrandDialogOpen(false);
@@ -237,62 +267,82 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
     });
   };
 
-  return (
-    <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>
-              {product ? "Edit Product" : "Create New Product"}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" value={formData.name} onChange={handleChange} />
-            </div>
+  const handleSubmit = async () => {
+    startTransition(async () => {
+      try {
+        const submissionData: Partial<IProduct> = {
+          name: formData.name,
+          description: formData.description,
+          // Fix 1: Cast the brand string to the expected type
+          brand: formData.brand as any, // The backend expects the string ID and will handle the conversion
+          condition: formData.condition,
+          images: formData.images,
+          price: Number(formData.price),
+          stock: Number(formData.stock),
+          // Fix 2: Only include variants/variationSchema for variable products, and handle the type mismatch
+          ...(productType === "variable" && {
+            variants: formData.variants.map((v) => ({
+              // Omit _id for new variants - the backend will generate it
+              options: Object.fromEntries(v.options),
+              price: v.price,
+              originalPrice: v.originalPrice,
+              images: v.images,
+              stock: v.stock,
+              sku: v.sku,
+            })) as any, // Cast to any to bypass the _id requirement
+            variationSchema: formData.variationSchema.map((vs) => ({
+              // Omit _id for new variation schemas - the backend will generate it
+              name: vs.name,
+              options: vs.options,
+            })) as any, // Cast to any to bypass the _id requirement
+          }),
+          // Fix 3: Ensure simple products have empty arrays
+          ...(productType === "simple" && {
+            variants: [],
+            variationSchema: [],
+          }),
+        };
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label htmlFor="originalPrice">Original Price</Label>
-                <Input
-                  id="originalPrice"
-                  type="number"
-                  value={formData.originalPrice || ""}
-                  onChange={handleChange}
-                  min="0"
-                  placeholder="e.g., 1200"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="discount">Discount %</Label>
-                <Input
-                  id="discount"
-                  type="number"
-                  value={formData.discount || ""}
-                  onChange={handleChange}
-                  min="0"
-                  max="100"
-                  placeholder="e.g., 25"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="price" className="font-semibold">
-                  Sale Price
-                </Label>
-                <Input
-                  id="price"
-                  type="number"
-                  value={formData.price || ""}
-                  onChange={handleChange}
-                  min="0"
-                  required
-                  placeholder="e.g., 900"
-                  className="font-bold border-primary"
-                />
-              </div>
-            </div>
-            {/* ... rest of the form ... */}
+        if (product) {
+          await updateProduct(product._id.toString(), submissionData);
+          toast.success("Product updated successfully.");
+        } else {
+          await createProduct(submissionData);
+          toast.success("Product created successfully.");
+        }
+        onClose();
+        router.refresh();
+      } catch (error: any) {
+        toast.error("Operation Failed", { description: error.message });
+      }
+    });
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>
+            {product ? "Edit Product" : "Create New Product"}
+          </DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-6 py-4 max-h-[80vh] overflow-y-auto pr-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Product Name</Label>
+            <Input id="name" value={formData.name} onChange={handleChange} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="description">
+              Description (one paragraph per line)
+            </Label>
+            <Textarea
+              id="description"
+              value={formData.description?.join("\n")}
+              onChange={handleChange}
+              rows={4}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="brand">Brand</Label>
               <div className="flex items-center gap-2">
@@ -300,7 +350,7 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
                   value={formData.brand}
                   onValueChange={(v) => handleSelectChange("brand", v)}
                 >
-                  <SelectTrigger id="brand">
+                  <SelectTrigger>
                     <SelectValue placeholder="Select a brand" />
                   </SelectTrigger>
                   <SelectContent>
@@ -315,6 +365,7 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
                   </SelectContent>
                 </Select>
                 <Button
+                  type="button"
                   variant="outline"
                   size="icon"
                   onClick={() => setIsBrandDialogOpen(true)}
@@ -329,7 +380,7 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
                 value={formData.condition}
                 onValueChange={(v) => handleSelectChange("condition", v)}
               >
-                <SelectTrigger id="condition">
+                <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -339,43 +390,216 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="description">
-                Description (one paragraph per line)
-              </Label>
-              <Textarea
-                id="description"
-                value={formData.description.join("\n")}
-                onChange={handleChange}
-                rows={5}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="imageUrl">Image</Label>
-              <ImageUploader
-                initialImageUrl={formData.imageUrl}
-                onUploadSuccess={handleImageUpload}
-              />
-            </div>
           </div>
-          <DialogFooter>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
-              {isSubmitting && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <div className="space-y-2">
+            <ImageUploader
+              label="Main Product Images"
+              initialImageUrls={formData.images}
+              onUrlsChange={(urls) =>
+                setFormData((p) => ({ ...p, images: urls }))
+              }
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Product Type</Label>
+            <RadioGroup
+              value={productType}
+              onValueChange={(v) => setProductType(v as any)}
+              className="flex gap-4"
+            >
+              <Label className="flex items-center gap-2">
+                <RadioGroupItem value="simple" /> Simple Product
+              </Label>
+              <Label className="flex items-center gap-2">
+                <RadioGroupItem value="variable" /> Product with Variations
+              </Label>
+            </RadioGroup>
+          </div>
+
+          {productType === "simple" && (
+            <div className="grid grid-cols-2 gap-4 p-4 border rounded-md">
+              <div className="space-y-2">
+                <Label htmlFor="price">Price (KES)</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  value={formData.price}
+                  onChange={(e) =>
+                    setFormData((p) => ({
+                      ...p,
+                      price: Number(e.target.value),
+                    }))
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="stock">Stock Quantity</Label>
+                <Input
+                  id="stock"
+                  type="number"
+                  value={formData.stock}
+                  onChange={(e) =>
+                    setFormData((p) => ({
+                      ...p,
+                      stock: Number(e.target.value),
+                    }))
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          {productType === "variable" && (
+            <div className="space-y-6 p-4 border rounded-md">
+              <div>
+                <Label>Define Variations</Label>
+                <div className="space-y-4 mt-2">
+                  {formData.variationSchema?.map((vs, i) => (
+                    <div
+                      key={i}
+                      className="flex items-end gap-2 p-2 border rounded-md"
+                    >
+                      <div className="flex-1 space-y-1">
+                        <Label htmlFor={`vs-name-${i}`}>Variation Name</Label>
+                        <Input
+                          id={`vs-name-${i}`}
+                          placeholder="e.g., Color"
+                          value={vs.name}
+                          onChange={(e) =>
+                            updateVariationType(
+                              i,
+                              e.target.value,
+                              vs.options.join(",")
+                            )
+                          }
+                        />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <Label htmlFor={`vs-options-${i}`}>
+                          Options (comma separated)
+                        </Label>
+                        <Input
+                          id={`vs-options-${i}`}
+                          placeholder="e.g., Red, Blue, Green"
+                          value={vs.options.join(", ")}
+                          onChange={(e) =>
+                            updateVariationType(i, vs.name, e.target.value)
+                          }
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeVariationType(i)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
+                  onClick={addVariationType}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Variation
+                </Button>
+              </div>
+
+              {formData.variants && formData.variants.length > 0 && (
+                <div>
+                  <Label>Edit Variants</Label>
+                  <Table className="mt-2">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Variant</TableHead>
+                        <TableHead>Price</TableHead>
+                        <TableHead>Stock</TableHead>
+                        <TableHead>SKU</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {formData.variants?.map((variant, i) => (
+                        <>
+                          <TableRow key={i}>
+                            <TableCell>
+                              {Array.from(variant.options.values()).join(" / ")}
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={variant.price}
+                                onChange={(e) =>
+                                  handleVariantChange(
+                                    i,
+                                    "price",
+                                    Number(e.target.value)
+                                  )
+                                }
+                                className="w-24"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                type="number"
+                                value={variant.stock}
+                                onChange={(e) =>
+                                  handleVariantChange(
+                                    i,
+                                    "stock",
+                                    Number(e.target.value)
+                                  )
+                                }
+                                className="w-24"
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Input
+                                value={variant.sku}
+                                onChange={(e) =>
+                                  handleVariantChange(i, "sku", e.target.value)
+                                }
+                                className="w-32"
+                              />
+                            </TableCell>
+                          </TableRow>
+                          <TableRow key={`${i}-images`}>
+                            <TableCell colSpan={4} className="p-2 bg-muted/20">
+                              <ImageUploader
+                                label=""
+                                initialImageUrls={variant.images}
+                                onUrlsChange={(urls) =>
+                                  handleVariantChange(i, "images", urls)
+                                }
+                              />
+                            </TableCell>
+                          </TableRow>
+                        </>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
-              {isSubmitting ? "Saving..." : "Save Product"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      {/* ... brand creation dialog ... */}
+            </div>
+          )}
+        </div>
+        <DialogFooter>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting ? "Saving..." : "Save Product"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
       <Dialog open={isBrandDialogOpen} onOpenChange={setIsBrandDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Create New Brand</DialogTitle>
             <DialogDescription>
-              Enter the name for the new brand. It will be immediately available
-              for use.
+              Enter the name for the new brand.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 py-4">
@@ -384,7 +608,6 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
               id="new-brand-name"
               value={newBrandName}
               onChange={(e) => setNewBrandName(e.target.value)}
-              placeholder="e.g., Nike, Adidas, etc."
             />
           </div>
           <DialogFooter>
@@ -397,12 +620,12 @@ export const ProductForm = ({ isOpen, onClose, product }: ProductFormProps) => {
             <Button onClick={handleCreateBrand} disabled={isCreatingBrand}>
               {isCreatingBrand && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {isCreatingBrand ? "Creating..." : "Create Brand"}
+              )}{" "}
+              Create Brand
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </>
+    </Dialog>
   );
 };

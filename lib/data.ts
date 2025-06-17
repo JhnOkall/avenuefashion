@@ -1,3 +1,4 @@
+// lib/data.ts
 import { IProduct, IBrand, IOrder, IAddress, IReview, ICart, ICity, ICounty, ICountry, IUser, IVoucher } from "@/types";
 
 /**
@@ -507,17 +508,18 @@ export const getCart = async (): Promise<ICart | null> => {
 };
 
 /**
-* Adds a new product to the cart or updates the quantity if it already exists.
+* Adds a new product or variant to the cart, or updates the quantity if it already exists.
 * @param productId - The unique identifier of the product to add.
 * @param quantity - The number of units to add.
+* @param variantId - The unique identifier of the product variant, if applicable.
 * @returns A promise that resolves to the updated cart object.
 * @throws Will throw an error if the API request fails.
 */
-export const addToCart = async (productId: string, quantity: number): Promise<ICart> => {
+export const addToCart = async (productId: string, quantity: number, variantId?: string): Promise<ICart> => {
     try {
         const authOptions = await getAuthFetchOptions({
             method: 'POST',
-            body: JSON.stringify({ productId, quantity }),
+            body: JSON.stringify({ productId, quantity, variantId }),
         });
         const response = await fetch(`${API_BASE_URL}/cart`, authOptions);
         const result = await response.json();
@@ -535,14 +537,15 @@ export const addToCart = async (productId: string, quantity: number): Promise<IC
 * Updates the quantity of a specific item in the cart.
 * @param productId - The unique identifier of the product to update.
 * @param quantity - The new quantity for the item. A quantity of 0 will remove the item.
+* @param variantId - The unique identifier of the product variant, required to uniquely identify the cart item.
 * @returns A promise that resolves to the updated cart object.
 * @throws Will throw an error if the API request fails.
 */
-export const updateCartItem = async (productId: string, quantity: number): Promise<ICart> => {
+export const updateCartItem = async (productId: string, quantity: number, variantId?: string): Promise<ICart> => {
   try {
       const authOptions = await getAuthFetchOptions({
           method: 'PATCH',
-          body: JSON.stringify({ productId, quantity }),
+          body: JSON.stringify({ productId, quantity, variantId }),
       });
       const response = await fetch(`${API_BASE_URL}/cart`, authOptions);
       const result = await response.json();
@@ -559,14 +562,15 @@ export const updateCartItem = async (productId: string, quantity: number): Promi
 /**
 * Removes an item completely from the cart, regardless of its quantity.
 * @param productId - The unique identifier of the product to remove.
+* @param variantId - The unique identifier of the product variant, required to uniquely identify the cart item.
 * @returns A promise that resolves to the updated cart object.
 * @throws Will throw an error if the API request fails.
 */
-export const removeCartItem = async (productId: string): Promise<ICart> => {
+export const removeCartItem = async (productId: string, variantId?: string): Promise<ICart> => {
   try {
       const authOptions = await getAuthFetchOptions({
           method: 'DELETE',
-          body: JSON.stringify({ productId }),
+          body: JSON.stringify({ productId, variantId }),
       });
       const response = await fetch(`${API_BASE_URL}/cart`, authOptions);
        const result = await response.json();

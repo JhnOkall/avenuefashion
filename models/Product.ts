@@ -1,13 +1,80 @@
+// models/Product.ts
 import { Schema, model, models } from 'mongoose';
 import { IProduct } from '@/types';
 import '@/models/Review';
 import '@/models/Brand';
 
 /**
+ * Mongoose schema for a concrete, sellable product variant.
+ * Each variant has its own price, stock, and images.
+ */
+const ProductVariantSchema = new Schema({
+  /**
+   * A map of variation type names to option values, e.g., { "Color": "Blue", "Size": "XL" }.
+   */
+  options: {
+    type: Map,
+    of: String,
+    required: true,
+  },
+  /**
+   * The specific price for this variant.
+   */
+  price: {
+    type: Number,
+    required: [true, 'Variant price is required.'],
+  },
+  /**
+   * The original price for this variant, for displaying discounts.
+   */
+  originalPrice: {
+    type: Number,
+  },
+  /**
+   * The inventory count for this specific variant.
+   */
+  stock: {
+    type: Number,
+    required: [true, 'Variant stock is required.'],
+    default: 0,
+  },
+  /**
+   * An array of image URLs specific to this variant.
+   */
+  images: {
+    type: [String],
+    default: [],
+  },
+  /**
+   * An optional, unique Stock Keeping Unit for this variant.
+   */
+  sku: {
+    type: String,
+    trim: true,
+  },
+});
+
+/**
+ * Mongoose schema for defining a type of variation (e.g., "Color") and its
+ * available options (e.g., ["Red", "Blue", "Green"]).
+ */
+const VariationTypeSchema = new Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+  },
+  options: {
+    type: [String],
+    required: true,
+  },
+});
+
+/**
  * Mongoose schema for the Product model.
  *
- * This schema defines the structure for products sold in the store. It includes
- * pricing, descriptive details, brand and review associations, and inventory status.
+ * This schema defines the structure for products, supporting both simple products
+ * and products with multiple variations.
  */
 const ProductSchema = new Schema<IProduct>({
   /**
@@ -39,16 +106,16 @@ const ProductSchema = new Schema<IProduct>({
   },
 
   /**
-   * The current selling price of the product.
+   * The base selling price of the product. For products with variants, this may
+   * act as a "starting from" price or be superseded by variant-specific prices.
    */
   price: {
     type: Number,
-    required: [true, 'Price is required.'],
+    required: [true, 'A base price is required.'],
   },
 
   /**
-   * The original price of the product before any discounts are applied.
-   * This is optional and used to display a "slash" price for items on sale.
+   * The original base price of the product before any discounts are applied.
    */
   originalPrice: {
     type: Number,
@@ -64,12 +131,11 @@ const ProductSchema = new Schema<IProduct>({
   },
 
   /**
-   * The primary image URL for the product.
+   * An array of image URLs for the product. The first image is the primary display image.
    */
-  // TODO: Consider converting `imageUrl` to an array `images: [String]` to support a full product gallery.
-  imageUrl: {
-    type: String,
-    required: [true, 'Image URL is required.'],
+  images: {
+    type: [String],
+    required: [true, 'At least one image URL is required.'],
   },
 
   /**
@@ -83,7 +149,6 @@ const ProductSchema = new Schema<IProduct>({
   /**
    * The condition of the product.
    */
-  // TODO: Add 'restored' to the enum to fully match the IProduct interface definition.
   condition: {
     type: String,
     enum: ['new', 'used', 'restored'],
@@ -102,8 +167,6 @@ const ProductSchema = new Schema<IProduct>({
   /**
    * The average rating of the product, denormalized from its reviews for query performance.
    */
-  // TODO: Implement a robust mechanism (e.g., a static method on the schema) to recalculate
-  // this value atomically when a review is added, updated, or deleted.
   rating: {
     type: Number,
     required: true,
@@ -134,10 +197,34 @@ const ProductSchema = new Schema<IProduct>({
   /**
    * A flag to control the visibility of the product on the storefront.
    */
-  // TODO: Add an `inventory` or `stockCount` number field to manage product availability and prevent overselling.
   isActive: {
     type: Boolean,
     default: true,
+  },
+
+  /**
+   * The stock count for a simple product (without variants). For products with
+   * variants, inventory is managed at the variant level.
+   */
+  stock: {
+    type: Number,
+  },
+
+  /**
+   * Defines the variation structure for this product (e.g., "Color", "Size").
+   */
+  variationSchema: {
+    type: [VariationTypeSchema],
+    default: undefined,
+  },
+
+  /**
+   * An array of all concrete product variants. If this is empty or undefined,
+   * the product is treated as a simple product.
+   */
+  variants: {
+    type: [ProductVariantSchema],
+    default: undefined,
   },
 }, {
   /**

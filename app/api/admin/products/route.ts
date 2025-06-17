@@ -1,3 +1,4 @@
+// app\api\admin\products\route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import connectDB from '@/lib/db';
@@ -50,6 +51,7 @@ export async function GET(req: Request) {
      * Fetches the paginated and filtered list of products.
      * It populates the `brand` field to include the brand's name.
      * The results are sorted by creation date in descending order (newest first).
+     * The fetched products will include the new `variants` and `variationSchema` fields.
      */
     const products = await Product.find(filter)
       .populate('brand', 'name')
@@ -90,8 +92,11 @@ export async function POST(req: Request) {
     // Establishes a connection to the MongoDB database.
     await connectDB();
     
-    // Parses the JSON body from the incoming POST request.
-    // TODO: Implement server-side validation (e.g., using Zod) to ensure the request body contains all required fields with the correct data types.
+    /**
+     * Parses the JSON body from the incoming POST request.
+     * This body can now contain `variationSchema` and `variants` arrays for creating
+     * a product with variations. Mongoose will validate these nested structures.
+     */
     const body = await req.json();
     
     // Creates a new Product document instance with the provided data.

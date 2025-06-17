@@ -1,3 +1,4 @@
+// types/index.ts
 import { Document, Types } from 'mongoose';
 
 // =================================================================
@@ -177,6 +178,54 @@ export interface IUser extends Document {
 // =================================================================
 
 /**
+ * Defines a type of variation for a product, like 'Color' or 'Size'.
+ */
+export interface IVariationType {
+  _id: Types.ObjectId;
+  /**
+   * The name of the variation type (e.g., "Color").
+   */
+  name: string;
+  /**
+   * A list of possible option values for this variation type (e.g., "Red", "Blue").
+   */
+  options: string[];
+}
+
+/**
+ * Represents a specific combination of variation options for a product.
+ * This is the actual sellable unit with its own price, stock, and images.
+ */
+export interface IProductVariant {
+  _id: Types.ObjectId;
+  /**
+   * A map of variation type names to the selected option value for this variant.
+   * e.g., { "Color": "Blue", "Size": "XL" }
+   */
+  options: Map<string, string>;
+  /**
+   * The price of this specific variant.
+   */
+  price: number;
+  /**
+   * The original price before a sale or discount.
+   */
+  originalPrice?: number;
+  /**
+   * The number of units available for this variant.
+   */
+  stock: number;
+  /**
+   * A list of image URLs specific to this variant.
+   */
+  images: string[];
+  /**
+   * A unique Stock Keeping Unit for inventory tracking.
+   */
+  sku?: string;
+}
+
+/**
  * Represents a product brand or manufacturer.
  */
 export interface IBrand extends Document {
@@ -252,7 +301,8 @@ export interface IProduct extends Document {
    */
   description: string[];
   /**
-   * The current selling price of the product.
+   * The base price of the product. For products with variants, this may act as a
+   * "starting from" price or be superseded by variant-specific prices.
    */
   price: number;
   /**
@@ -264,10 +314,10 @@ export interface IProduct extends Document {
    */
   discount?: number;
   /**
-   * The primary image URL for the product.
+   * An array of image URLs for the product. The first image is the primary one.
+   * Variant-specific images are stored within the `variants` array.
    */
-  // TODO: Consider converting `imageUrl` to `images: string[]` to support a gallery of product images.
-  imageUrl: string;
+  images: string[];
   /**
    * A list of key features or specifications for the product.
    */
@@ -295,8 +345,22 @@ export interface IProduct extends Document {
   /**
    * Flag to control the visibility of the product in the store.
    */
-  // TODO: Add an `inventory` or `stockCount` field to manage product availability.
   isActive: boolean;
+  /**
+   * The stock count for a simple product. For products with variants,
+   * inventory is managed at the variant level.
+   */
+  stock?: number;
+  /**
+   * Defines the variation structure for this product, such as "Color" and "Size".
+   * Each item in the array defines a variation type and its available options.
+   */
+  variationSchema?: IVariationType[];
+  /**
+   * An array of all concrete product variants. If this array is empty or does not exist,
+   * the product is considered a simple product without variations.
+   */
+  variants?: IProductVariant[];
   createdAt: Date;
   updatedAt: Date;
 }
@@ -314,15 +378,19 @@ export interface IProduct extends Document {
  */
 export interface ICartItem {
   /**
-   * Reference to the original product.
+   * Reference to the parent product.
    */
   product: Types.ObjectId | IProduct;
   /**
-   * The number of units of this product in the cart.
+   * Reference to the specific product variant, if applicable.
+   */
+  variantId?: Types.ObjectId;
+  /**
+   * The number of units of this item in the cart.
    */
   quantity: number;
   /**
-   * The price of the product at the time it was added to the cart.
+   * The price of the item at the time it was added to the cart.
    */
   price: number;
   /**
@@ -330,9 +398,13 @@ export interface ICartItem {
    */
   name: string;
   /**
-   * The image URL of the product at the time it was added.
+   * The image URL of the item at the time it was added.
    */
   imageUrl: string;
+  /**
+   * Details of the selected variant options, e.g., { "Color": "Blue", "Size": "XL" }
+   */
+  variantOptions?: Map<string, string>;
 }
 
 /**
@@ -409,6 +481,10 @@ export interface IOrderItem {
    */
   product: Types.ObjectId | IProduct;
   /**
+   * Reference to the specific product variant purchased, if applicable.
+   */
+  variantId?: Types.ObjectId;
+  /**
    * The name of the product at the time of purchase.
    */
   name: string;
@@ -424,6 +500,10 @@ export interface IOrderItem {
    * The quantity of the product purchased.
    */
   quantity: number;
+  /**
+   * A snapshot of the selected variant options.
+   */
+  variantOptions?: Map<string, string>;
 }
 
 /**

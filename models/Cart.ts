@@ -1,3 +1,4 @@
+// models/Cart.ts
 import { Schema, model, models } from 'mongoose';
 import { ICart, ICartItem } from '@/types';
 import '@/models/User'
@@ -6,15 +7,13 @@ import '@/models/Product'
 /**
  * Mongoose subdocument schema for an item within a shopping cart.
  *
- * This schema does not create a separate collection. Instead, it defines the
- * structure of objects within the `items` array of the `Cart` document.
- * Product details (`price`, `name`, `imageUrl`) are duplicated ("snapshotted")
- * here to ensure that the cart's contents remain consistent even if the
- * original product is updated or removed from the store.
+ * Defines the structure of objects within the `items` array of a `Cart` document.
+ * It includes an optional `variantId` to distinguish between different variations
+ * of the same product.
  */
 const CartItemSchema = new Schema<ICartItem>({
   /**
-   * Reference to the original product being added to the cart.
+   * Reference to the parent product.
    */
   product: {
     type: Schema.Types.ObjectId,
@@ -23,7 +22,15 @@ const CartItemSchema = new Schema<ICartItem>({
   },
 
   /**
-   * The number of units of this product. Must be at least 1.
+   * Optional reference to the specific product variant chosen by the user.
+   * Its presence indicates this cart item is for a product variation.
+   */
+  variantId: {
+    type: Schema.Types.ObjectId,
+  },
+
+  /**
+   * The number of units of this item. Must be at least 1.
    */
   quantity: {
     type: Number,
@@ -32,7 +39,7 @@ const CartItemSchema = new Schema<ICartItem>({
   },
 
   /**
-   * The price of the product at the time it was added to the cart.
+   * The price of the product or variant at the time it was added to the cart.
    */
   price: {
     type: Number,
@@ -40,7 +47,7 @@ const CartItemSchema = new Schema<ICartItem>({
   },
 
   /**
-   * The name of the product at the time it was added to the cart.
+   * The name of the product at the time it was added.
    */
   name: {
     type: String,
@@ -48,16 +55,25 @@ const CartItemSchema = new Schema<ICartItem>({
   },
 
   /**
-   * The image URL of the product at the time it was added to the cart.
+   * The image URL of the item at the time it was added. This will be the
+   * variant's image if available, otherwise the product's main image.
    */
   imageUrl: {
     type: String,
     required: true
   },
+
+  /**
+   * A snapshot of the selected variant options (e.g., { "Color": "Blue" }).
+   */
+  variantOptions: {
+    type: Map,
+    of: String,
+  },
 }, {
   /**
-   * Disables the automatic creation of `_id` for these subdocuments, as they
-   * are managed as part of the parent Cart document.
+   * We use a composite key of (product, variantId) to identify items,
+   * so a separate subdocument _id is not needed.
    */
   _id: false
 });
@@ -65,52 +81,42 @@ const CartItemSchema = new Schema<ICartItem>({
 /**
  * Mongoose schema for the Cart model.
  *
- * Represents a shopping cart that can be associated with either a logged-in user
- * or a guest session identified by a unique token.
+ * Represents a shopping cart for both logged-in users and guest sessions.
  */
 const CartSchema = new Schema<ICart>({
   /**
-   * A reference to a registered user. This field is sparse and unique to ensure
-   * a user can only have one active cart. It is optional to support guest carts.
+   * A reference to a registered user.
    */
   user: {
     type: Schema.Types.ObjectId,
     ref: 'User',
     unique: true,
-    sparse: true, // Allows multiple documents to have a null `user` field.
+    sparse: true, // Allows multiple documents to have a null `user` field for guests.
   },
 
   /**
-   * A unique token to identify and track carts for unauthenticated (guest) users.
-   * This token would typically be stored in a client-side cookie or local storage.
+   * A unique token to identify guest carts.
    */
   sessionToken: {
     type: String,
     unique: true,
-    sparse: true, // Allows multiple documents to have a null `sessionToken` field.
+    sparse: true, // Allows multiple documents to have a null `sessionToken`.
   },
 
   /**
-   * An array of items currently in the cart, conforming to the CartItemSchema.
+   * An array of items currently in the cart.
    */
   items: [CartItemSchema],
 }, {
   /**
-   * Automatically adds `createdAt` and `updatedAt` timestamps. The `updatedAt`
-   * timestamp is crucial for the TTL index that cleans up abandoned guest carts.
+   * Automatically adds `createdAt` and `updatedAt` timestamps.
    */
   timestamps: true,
 });
 
-// TODO: Add a pre-save validation hook to ensure a cart has EITHER a `user` OR a `sessionToken`, but not neither.
-// This would enforce data integrity and prevent orphaned cart documents.
-
 /**
- * Creates a TTL (Time-To-Live) index on the `updatedAt` field.
- * This index automatically removes documents from the collection after a specified
- * number of seconds (here, 30 days). The `partialFilterExpression` ensures that
- * this rule ONLY applies to guest carts (i.e., those without a `user` ID),
- * preventing the deletion of carts belonging to registered users.
+ * Creates a TTL (Time-To-Live) index to automatically delete abandoned guest carts
+ * after 30 days of inactivity. This does not affect carts of registered users.
  */
 CartSchema.index(
   { updatedAt: 1 },
@@ -122,10 +128,6 @@ CartSchema.index(
 
 /**
  * The Cart model.
- *
- * This pattern prevents Mongoose from recompiling the model on every hot-reload,
- * which is a common issue in Next.js development environments. It checks if the
- * model already exists in `mongoose.models` before creating a new one.
  */
 const Cart = models.Cart || model<ICart>('Cart', CartSchema);
 

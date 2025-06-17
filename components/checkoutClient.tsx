@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,11 +28,12 @@ import { toast } from "sonner";
 import {
   IAddress,
   ICart,
+  ICartItem,
   ICity,
   ICountry,
   ICounty,
-  IVoucher,
   IOrder,
+  IVoucher,
 } from "@/types";
 import {
   createAddress,
@@ -40,8 +43,6 @@ import {
   validateVoucher,
 } from "@/lib/data";
 
-// This declaration tells TypeScript that the 'Paystack' object will be available on the global 'window' object.
-// This is necessary when using the CDN script method.
 declare global {
   interface Window {
     PaystackPop: {
@@ -52,13 +53,57 @@ declare global {
   }
 }
 
-/**
- * Formats a numeric price into a localized currency string.
- */
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
     price
   );
+
+/**
+ * A new sub-component to display a summary of items in the order.
+ */
+const OrderItemsCard = ({ cart }: { cart: ICart }) => {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Your Items ({cart.items.length})</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {cart.items.map((item: ICartItem) => (
+          <div
+            key={`${item.product._id.toString()}-${item.variantId?.toString()}`}
+            className="flex items-start gap-4"
+          >
+            <div className="relative h-16 w-16 shrink-0 rounded-md border">
+              <Image
+                src={item.imageUrl}
+                alt={item.name}
+                fill
+                className="object-contain"
+                sizes="64px"
+              />
+            </div>
+            <div className="flex-grow">
+              <p className="font-medium">{item.name}</p>
+              {item.variantOptions && (
+                <p className="text-sm text-muted-foreground">
+                  {Object.entries(item.variantOptions)
+                    .map(([key, value]) => `${key}: ${value}`)
+                    .join(", ")}
+                </p>
+              )}
+              <p className="text-sm text-muted-foreground">
+                Qty: {item.quantity}
+              </p>
+            </div>
+            <p className="font-medium">
+              {formatPrice(item.price * item.quantity)}
+            </p>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+};
 
 type UserSession = { name?: string | null; email?: string | null; id?: string };
 interface CheckoutClientProps {
@@ -76,7 +121,6 @@ export const CheckoutClient = ({
 }: CheckoutClientProps) => {
   const router = useRouter();
 
-  // State to manage delivery address choice: 'use-saved' or 'use-new'
   const [deliveryOption, setDeliveryOption] = useState("use-saved");
   const [shippingDetails, setShippingDetails] = useState({
     name: user.name ?? "",
@@ -87,11 +131,8 @@ export const CheckoutClient = ({
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(
     null
   );
-
-  // ** CHANGE: Default to 'paystack' and update payment method options
   const [paymentMethod, setPaymentMethod] = useState("paystack");
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const [selectedCountryId, setSelectedCountryId] = useState("");
   const [selectedCountyId, setSelectedCountyId] = useState("");
   const [selectedCityId, setSelectedCityId] = useState("");
@@ -99,12 +140,10 @@ export const CheckoutClient = ({
   const [cities, setCities] = useState<ICity[]>([]);
   const [isLoadingCounties, setIsLoadingCounties] = useState(false);
   const [isLoadingCities, setIsLoadingCities] = useState(false);
-
   const [voucherCode, setVoucherCode] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<IVoucher | null>(null);
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
 
-  // Helper to populate the entire form from a saved address object
   const setFormFromAddress = async (address: IAddress) => {
     setSelectedAddressId(address._id.toString());
     setShippingDetails({
@@ -128,15 +167,12 @@ export const CheckoutClient = ({
       setSelectedCityId(cityId);
     } catch (error) {
       toast.error("Error", { description: "Failed to load address location." });
-      setSelectedCountyId("");
-      setSelectedCityId("");
     } finally {
       setIsLoadingCounties(false);
       setIsLoadingCities(false);
     }
   };
 
-  // Handler to clear the form when switching to "new address"
   const handleNewAddressSelect = () => {
     setSelectedAddressId(null);
     setShippingDetails({
@@ -167,6 +203,7 @@ export const CheckoutClient = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setShippingDetails({ ...shippingDetails, [e.target.id]: e.target.value });
   };
+
   const onCountryChange = async (countryId: string) => {
     setSelectedCountryId(countryId);
     setSelectedCountyId("");
@@ -177,12 +214,11 @@ export const CheckoutClient = ({
     try {
       const fetchedCounties = await fetchCountiesByCountry(countryId);
       setCounties(fetchedCounties);
-    } catch (error) {
-      toast.error("Error", { description: "Failed to fetch counties." });
     } finally {
       setIsLoadingCounties(false);
     }
   };
+
   const onCountyChange = async (countyId: string) => {
     setSelectedCountyId(countyId);
     setSelectedCityId("");
@@ -191,12 +227,11 @@ export const CheckoutClient = ({
     try {
       const fetchedCities = await fetchCitiesByCounty(countyId);
       setCities(fetchedCities);
-    } catch (error) {
-      toast.error("Error", { description: "Failed to fetch cities." });
     } finally {
       setIsLoadingCities(false);
     }
   };
+
   const orderSummary = useMemo(() => {
     const subtotal = cart.items.reduce(
       (acc, item) => acc + item.price * item.quantity,
@@ -215,16 +250,15 @@ export const CheckoutClient = ({
     const total = Math.max(0, subtotal + shippingFee + tax - discount);
     return { subtotal, shippingFee, tax, discount, total };
   }, [cart, cities, selectedCityId, appliedVoucher]);
+
   const handleApplyVoucher = async () => {
-    if (!voucherCode.trim())
-      return toast.warning("Please enter a voucher code.");
+    if (!voucherCode.trim()) return;
     setIsApplyingVoucher(true);
     try {
       const validVoucher = await validateVoucher(voucherCode);
       setAppliedVoucher(validVoucher);
-      toast.success("Voucher applied successfully!");
+      toast.success("Voucher applied!");
     } catch (error: any) {
-      setAppliedVoucher(null);
       toast.error("Invalid Voucher", { description: error.message });
     } finally {
       setIsApplyingVoucher(false);
@@ -237,12 +271,8 @@ export const CheckoutClient = ({
     toast.info("Voucher removed.");
   };
 
-  /**
-   * Main checkout handler. This is called when the final button is clicked.
-   * It handles all validations and then branches based on payment method.
-   */
   const handleCheckout = async (e: React.FormEvent) => {
-    e.preventDefault(); // Prevent default form submission
+    e.preventDefault();
     setIsSubmitting(true);
     try {
       let finalAddressId = selectedAddressId;
@@ -272,14 +302,13 @@ export const CheckoutClient = ({
 
       const newOrder = await placeOrder({
         addressId: finalAddressId,
-        paymentMethod: paymentMethod,
+        paymentMethod,
         voucherCode: appliedVoucher?.code,
       });
 
       if (paymentMethod === "paystack") {
         launchPaystackPopup(newOrder);
       } else {
-        // 'on-delivery'
         router.push(`/success?orderId=${newOrder.orderId}`);
       }
     } catch (error: any) {
@@ -288,9 +317,6 @@ export const CheckoutClient = ({
     }
   };
 
-  /**
-   * Initializes and opens the Paystack payment popup using the core InlineJS library.
-   */
   const launchPaystackPopup = (order: IOrder) => {
     const handler = window.PaystackPop.setup({
       key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
@@ -298,22 +324,11 @@ export const CheckoutClient = ({
       amount: Math.round(orderSummary.total * 100),
       currency: "KES",
       ref: order.orderId,
-      subaccount: "ACCT_509uwma1ojlhkpg",
-      metadata: {
-        project_id: "avenue_fashion",
-        orderId: order.orderId,
-        customerName: shippingDetails.name,
-      },
-      callback: function (response: any) {
-        // This is called 'callback' in v2, not 'onSuccess'
-        router.push(`/success?orderId=${response.reference}`);
-      },
-      onClose: function () {
-        // This is called 'onClose' in v2, not 'onCancel'
-        toast.info("Payment Canceled", {
-          description:
-            "Your order is saved. You can complete payment from your account.",
-        });
+      metadata: { orderId: order.orderId },
+      callback: (response: any) =>
+        router.push(`/success?orderId=${response.reference}`),
+      onClose: () => {
+        toast.info("Payment Canceled");
         setIsSubmitting(false);
       },
     });
@@ -328,6 +343,8 @@ export const CheckoutClient = ({
       >
         <div className="lg:flex lg:items-start lg:gap-12 xl:gap-16">
           <div className="min-w-0 flex-1 space-y-8">
+            <OrderItemsCard cart={cart} />
+
             <Card>
               <CardHeader>
                 <CardTitle>Delivery Details</CardTitle>
@@ -362,9 +379,7 @@ export const CheckoutClient = ({
                     <span>Enter new address</span>
                   </Label>
                 </RadioGroup>
-
                 <Separator />
-
                 {deliveryOption === "use-saved" && (
                   <div className="space-y-2">
                     <Label>Select a saved address</Label>
@@ -395,7 +410,6 @@ export const CheckoutClient = ({
                     </RadioGroup>
                   </div>
                 )}
-
                 {deliveryOption === "use-new" && (
                   <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
@@ -536,7 +550,7 @@ export const CheckoutClient = ({
                       id="paystack"
                       className="mr-4"
                     />
-                    <div className="text-sm">
+                    <div>
                       <p>Pay with Card / M-PESA</p>
                     </div>
                   </Label>
@@ -549,7 +563,7 @@ export const CheckoutClient = ({
                       id="on-delivery"
                       className="mr-4"
                     />
-                    <div className="text-sm">
+                    <div>
                       <p>Pay on Delivery</p>
                     </div>
                   </Label>

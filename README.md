@@ -2,7 +2,7 @@
 
 Avenue Fashion is a comprehensive, full-stack e-commerce platform built with a modern technology stack. It provides a seamless, performant shopping experience for customers and a powerful, data-driven dashboard for administrators to manage products, orders, users, and site-wide settings.
 
-This project also serves as a reference implementation for a multi-tenant payment architecture, where a central entity can manage payments for multiple sub-accounts (e.g., different brands or stores) using a single payment gateway account.
+This project now features a robust product variation system, allowing for complex product offerings (e.g., different sizes, colors) with unique pricing, stock, and imagery for each variant.
 
 ![Avenue Fashion Screenshot](https://res.cloudinary.com/dli0mqabp/image/upload/v1750080866/Screenshot_2025-06-16_001503_icldjf.png)
 
@@ -38,8 +38,9 @@ The application is architecturally split into two primary domains using Route Gr
 ### Customer-Facing
 
 - **Dynamic Product Catalog**: A product grid with server-side filtering, sorting, and "load more" pagination.
+- **Product Variations**: Customers can select product variants (e.g., size, color), with the price, images, and stock status updating dynamically.
 - **Global Search**: Debounced, real-time search with product suggestions and a persistent search history stored in cookies.
-- **Optimistic UI Shopping Cart**: Client-side state management for a smooth, non-blocking user experience when adding, updating, or removing items.
+- **Optimistic UI Shopping Cart**: Client-side state management for a smooth, non-blocking user experience when adding, updating, or removing items, with full support for product variants.
 - **Secure Authentication**: Robust sign-in/sign-up and session management powered by NextAuth.js (Auth.js v5).
 - **Live Payment Integration**: Secure, real-time payments powered by **Paystack**, with options for card and M-Pesa, alongside a "Pay on Delivery" choice.
 - **Multi-Step Checkout**: A guided checkout process with saved address selection, dynamic shipping fee calculation, and voucher application.
@@ -49,7 +50,9 @@ The application is architecturally split into two primary domains using Route Gr
 ### Admin Dashboard
 
 - **Analytics Overview**: A dashboard with key metrics like total revenue, sales volume, new customers, and revenue-over-time charts.
-- **Product Management**: Full CRUD functionality for products, managed through a paginated and searchable data table, with an integrated **Cloudinary image uploader** and preview.
+- **Advanced Product Management**: Full CRUD functionality for both simple and variable products.
+- **Dynamic Variation Builder**: An intuitive interface to define variation types (e.g., "Color", "Size") and their options, which automatically generates all possible variant combinations for management.
+- **Inline Variant Editing**: Admins can set unique prices, stock levels, SKUs, and upload specific images for each individual product variant.
 - **Order Management**: View and update the fulfillment status of all customer orders, which dynamically updates the customer's visual timeline.
 - **User Management**: View all users and manage their roles (e.g., promote a user to admin).
 - **Voucher Management**: Create and manage percentage-based or fixed-amount discount codes.
@@ -75,8 +78,8 @@ This project utilizes a modern, cohesive set of tools to deliver a high-quality 
 
 - **Server Components First**: The application defaults to using React Server Components (RSC) for data fetching and rendering static content. This reduces the client-side JavaScript bundle size, improving initial page load times and SEO.
 - **Client Components for Interactivity**: Components requiring user interaction are explicitly marked with the `"use client"` directive. This clear separation of concerns is a core tenet of the App Router model.
-- **Multi-Tenant Payment Architecture**: The Paystack integration is designed to be scalable. A central API (representing a parent company like "Nyota") manages a single webhook endpoint. This endpoint verifies all incoming payment events and securely forwards them to the appropriate sub-project (like "Avenue Fashion") based on `metadata` sent during transaction initiation. This allows one Paystack account to serve multiple distinct storefronts securely.
-- **Decoupled Business Logic**: Critical actions like clearing a user's cart are decoupled from the initial order creation. The cart is only cleared upon confirmed successful payment, handled by the secure backend webhook, which prevents data inconsistency if a user cancels a payment.
+- **Variation-Centric Product Model**: The MongoDB schema is designed around a variation-centric approach. A single `Product` document can contain an array of `variants`, each with its own price, stock, and images. This is more efficient and scalable than creating a separate database document for every single variant.
+- **Decoupled Business Logic**: Critical actions like clearing a user's cart are decoupled from the initial order creation. The cart is only cleared upon confirmed successful payment, handled by a secure backend process, which prevents data inconsistency if a user cancels a payment.
 - **URL-driven State Management**: For filterable and paginated views, the primary state is managed through URL search parameters (`?page=2&status=pending`). This makes the UI state shareable, bookmarkable, and refresh-friendly.
 - **Centralized API Logic**: All backend logic, including database interactions and business rules, is encapsulated within Next.js API Route Handlers located in the `app/api/` directory.
 
@@ -153,7 +156,6 @@ AUTH_GOOGLE_ID="your-google-client-id.apps.googleusercontent.com"
 AUTH_GOOGLE_SECRET="your-google-client-secret"
 
 # Paystack Configuration
-# Your PUBLIC key from the parent Paystack account dashboard.
 NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY="pk_test_xxxxxxxxxxxxxxxxxxxxxxxx"
 
 # Cloudinary Configuration
@@ -162,16 +164,9 @@ NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY="pk_test_xxxxxxxxxxxxxxxxxxxxxxxx"
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="your-cloud-name"
 NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET="your-unsigned-upload-preset"
 
-# Internal Webhook Security
-# A strong, randomly generated secret for verifying requests from your central Nyota API.
-# Generate with: openssl rand -base64 32
-AVENUE_FASHION_INTERNAL_SECRET="your-random-secret-for-internal-webhooks"
-
 # Public URL of the application
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
-
-_Note: The Paystack Secret Key (`sk_test_...`or`sk*live*...`) is NOT stored in this project. It is stored securely in the central Nyota API project that manages the primary webhook.\_
 
 ### Running the Application
 
@@ -186,8 +181,8 @@ _Note: The Paystack Secret Key (`sk_test_...`or`sk*live*...`) is NOT stored in t
 
 ## Future Improvements
 
-- `[x]` **File Uploads**: Implement a proper file upload system (e.g., to Cloudinary or AWS S3) for product images.
-- `[ ]` **Robust Form Validation**: Integrate `react-hook-form` and `zod` for schema-based validation.
+- `[x]` **File Uploads**: Implement a multi-image upload system (to Cloudinary) for product and variant images.
+- `[ ]` **Robust Form Validation**: Integrate `react-hook-form` and `zod` for schema-based validation on all forms.
 - `[ ]` **Retry Logic for Payments**: Implement a "Retry Payment" feature for orders with a pending payment status.
 - `[ ]` **Comprehensive Testing**: Add a testing suite with Jest/Vitest and React Testing Library for unit tests, and Cypress/Playwright for E2E tests.
 - `[ ]` **Error Reporting**: Integrate a service like Sentry for real-time error tracking in production.

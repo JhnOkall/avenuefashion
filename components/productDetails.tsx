@@ -1,21 +1,20 @@
+// components/ProductDetails.tsx
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Star, Heart, ShoppingCart, Minus, Plus, Share } from "lucide-react"; // 1. Import Share icon
+import { Star, Heart, ShoppingCart, Minus, Plus, Share } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { IProduct } from "@/types";
+import { IProduct, IProductVariant, IVariationType } from "@/types";
 import { addToCart, addToFavourites } from "@/lib/data";
+import { cn } from "@/lib/utils";
 
-/**
- * Formats a number into a currency string.
- * @param {number} price - The price to format.
- * @returns {string} The formatted price string (e.g., "Ksh 1,234.56").
- */
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
     price
@@ -25,12 +24,6 @@ const formatPrice = (price: number) =>
 // SUB-COMPONENTS
 // =================================================================
 
-/**
- * A reusable, read-only component for displaying a star rating.
- * @param {object} props - The component props.
- */
-// TODO: This is a duplicated component. It should be extracted into a shared, reusable component
-// file (e.g., `components/ui/star-rating.tsx`) to avoid code duplication.
 const StarRating = ({
   rating,
   className,
@@ -38,32 +31,29 @@ const StarRating = ({
   rating: number;
   className?: string;
 }) => (
-  <div className={`flex items-center gap-1 ${className}`}>
+  <div className={cn("flex items-center gap-1", className)}>
     {Array.from({ length: 5 }).map((_, i) => (
       <Star
         key={i}
-        className={`h-4 w-4 ${
+        className={cn(
+          "h-4 w-4",
           i < Math.floor(rating)
             ? "fill-yellow-400 text-yellow-400"
             : "fill-muted stroke-muted-foreground"
-        }`}
+        )}
       />
     ))}
   </div>
 );
 
-/**
- * A component for selecting the quantity of a product.
- * @param {object} props - The component props.
- * @param {number} props.quantity - The current quantity value.
- * @param {React.Dispatch<React.SetStateAction<number>>} props.setQuantity - The state setter for the quantity.
- */
 const QuantitySelector = ({
   quantity,
   setQuantity,
+  stock,
 }: {
   quantity: number;
   setQuantity: React.Dispatch<React.SetStateAction<number>>;
+  stock: number;
 }) => (
   <div className="flex items-center">
     <Button
@@ -87,7 +77,8 @@ const QuantitySelector = ({
       variant="outline"
       size="icon"
       className="h-9 w-9"
-      onClick={() => setQuantity((prev) => prev + 1)}
+      onClick={() => setQuantity((prev) => Math.min(stock, prev + 1))}
+      disabled={quantity >= stock}
       aria-label="Increase quantity"
     >
       <Plus className="h-4 w-4" />
@@ -95,27 +86,108 @@ const QuantitySelector = ({
   </div>
 );
 
+const VariationSelector = ({
+  variation,
+  selectedOption,
+  onOptionChange,
+}: {
+  variation: IVariationType;
+  selectedOption: string;
+  onOptionChange: (option: string) => void;
+}) => (
+  <div>
+    <h3 className="text-sm font-medium text-foreground">{variation.name}</h3>
+    <RadioGroup
+      value={selectedOption}
+      onValueChange={onOptionChange}
+      className="mt-2 flex flex-wrap gap-2"
+    >
+      {variation.options.map((option) => (
+        <div key={option}>
+          <RadioGroupItem
+            value={option}
+            id={`${variation.name}-${option}`}
+            className="peer sr-only"
+          />
+          <Label
+            htmlFor={`${variation.name}-${option}`}
+            className="cursor-pointer rounded-md border-2 border-muted bg-popover px-4 py-2 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+          >
+            {option}
+          </Label>
+        </div>
+      ))}
+    </RadioGroup>
+  </div>
+);
+
 // =================================================================
 // MAIN COMPONENT
 // =================================================================
 
-/**
- * A client component responsible for rendering the main details of a single product,
- * including its image, name, price, rating, and interactive action buttons.
- */
 export const ProductDetails = ({ product }: { product: IProduct }) => {
   const [quantity, setQuantity] = useState(1);
   const [isPending, startTransition] = useTransition();
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, string>
+  >({});
 
-  /**
-   * Handles adding the selected quantity of the product to the shopping cart.
-   */
+  const hasVariations =
+    product.variationSchema && product.variationSchema.length > 0;
+
+  // Initialize selected options with the first available option for each variation type
+  useEffect(() => {
+    if (hasVariations) {
+      const initialOptions: Record<string, string> = {};
+      product.variationSchema!.forEach((v) => {
+        initialOptions[v.name] = v.options[0];
+      });
+      setSelectedOptions(initialOptions);
+    }
+  }, [product, hasVariations]);
+
+  // Memoize the selected variant to avoid re-calculating on every render
+  const selectedVariant = useMemo<IProductVariant | null | undefined>(() => {
+    if (!hasVariations || Object.keys(selectedOptions).length === 0) {
+      return null;
+    }
+    return product.variants?.find((variant) => {
+      return product.variationSchema!.every((schema) => {
+        return (
+          variant.options.get(schema.name) === selectedOptions[schema.name]
+        );
+      });
+    });
+  }, [selectedOptions, product, hasVariations]);
+
+  // Determine current price, stock, and image based on selection
+  const currentPrice = selectedVariant?.price ?? product.price;
+  const currentStock = selectedVariant?.stock ?? product.stock ?? 0;
+  const currentImage = selectedVariant?.images?.[0] || product.images[0];
+  const isOutOfStock = currentStock < 1;
+
+  useEffect(() => {
+    setQuantity(1); // Reset quantity when variant changes
+  }, [selectedVariant]);
+
+  const handleOptionChange = (variationName: string, option: string) => {
+    setSelectedOptions((prev) => ({ ...prev, [variationName]: option }));
+  };
+
   const handleAddToCart = () => {
     startTransition(async () => {
       try {
-        await addToCart(product._id.toString(), quantity);
+        await addToCart(
+          product._id.toString(),
+          quantity,
+          selectedVariant?._id.toString()
+        );
         toast.success("Added to Cart", {
-          description: `${quantity} x ${product.name} added to your cart.`,
+          description: `${quantity} x ${product.name} ${
+            selectedVariant
+              ? `(${Array.from(selectedVariant.options.values()).join(", ")})`
+              : ""
+          } added.`,
           action: {
             label: "View Cart",
             onClick: () => (window.location.href = "/cart"),
@@ -130,54 +202,30 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
     });
   };
 
-  /**
-   * Handles adding the product to the user's favorites list.
-   */
   const handleAddToFavourites = () => {
     startTransition(async () => {
       try {
         await addToFavourites(product._id.toString());
-        toast.success("Added to Favorites", {
-          description: `${product.name} has been added to your favorites.`,
-        });
+        toast.success("Added to Favorites");
       } catch (error: any) {
         toast.error("Failed to Add", {
-          description:
-            error.message || "Could not add the item to your favorites.",
+          description: error.message || "Could not add to favorites.",
         });
       }
     });
   };
 
-  /**
-   * 2. Handles sharing the product using the Web Share API with a fallback.
-   */
   const handleShare = async () => {
     const shareData = {
       title: product.name,
       text: `Check out ${product.name} at Avenue Fashion!`,
       url: window.location.href,
     };
-
     if (navigator.share) {
-      try {
-        await navigator.share(shareData);
-      } catch (error) {
-        // User might have cancelled the share. We can ignore this error.
-        console.log("Share was cancelled or failed", error);
-      }
+      await navigator.share(shareData).catch(() => {});
     } else {
-      // Fallback for browsers that don't support the Web Share API
-      try {
-        await navigator.clipboard.writeText(shareData.url);
-        toast.success("Link Copied!", {
-          description: "The product link has been copied to your clipboard.",
-        });
-      } catch (error) {
-        toast.error("Failed to Copy", {
-          description: "Could not copy the link to your clipboard.",
-        });
-      }
+      await navigator.clipboard.writeText(shareData.url);
+      toast.success("Link Copied!");
     }
   };
 
@@ -185,29 +233,28 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
     <section className="bg-background py-8 md:py-16">
       <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
         <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-16">
-          {/* Product Image Section */}
           <div className="shrink-0">
-            {/* TODO: Enhance this to be an image gallery carousel if product.images is implemented. */}
+            {/* TODO: Enhance this to be an image gallery carousel for multiple images */}
             <div className="relative mx-auto h-96 max-w-md lg:max-w-lg">
               <Image
                 className="h-full w-full rounded-lg object-contain"
-                src={product.imageUrl}
+                src={currentImage}
                 alt={product.name}
                 fill
                 sizes="(max-width: 1024px) 100vw, 50vw"
-                priority // Preload the main product image as it's LCP.
+                priority
+                key={currentImage}
               />
             </div>
           </div>
 
-          {/* Product Information and Actions Section */}
           <div className="mt-6 sm:mt-8 lg:mt-0">
             <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
               {product.name}
             </h1>
             <div className="mt-4 sm:flex sm:items-center sm:gap-4">
               <p className="text-2xl font-extrabold text-foreground sm:text-3xl">
-                {formatPrice(product.price)}
+                {formatPrice(currentPrice)}
               </p>
               <div className="mt-2 flex items-center gap-2 sm:mt-0">
                 <StarRating rating={product.rating} />
@@ -224,21 +271,53 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
 
             <Separator className="my-6 md:my-8" />
 
-            {/* Action Buttons & Quantity */}
+            {hasVariations && (
+              <div className="space-y-4">
+                {product.variationSchema?.map((variation) => (
+                  <VariationSelector
+                    key={variation.name}
+                    variation={variation}
+                    selectedOption={selectedOptions[variation.name]}
+                    onOptionChange={(option) =>
+                      handleOptionChange(variation.name, option)
+                    }
+                  />
+                ))}
+                {!selectedVariant &&
+                  Object.keys(selectedOptions).length > 0 && (
+                    <p className="text-sm text-destructive">
+                      This combination is not available.
+                    </p>
+                  )}
+                <Separator className="my-6 md:my-8" />
+              </div>
+            )}
+
             <div className="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
-              <QuantitySelector quantity={quantity} setQuantity={setQuantity} />
+              <QuantitySelector
+                quantity={quantity}
+                setQuantity={setQuantity}
+                stock={currentStock}
+              />
               <Button
                 size="lg"
                 onClick={handleAddToCart}
-                disabled={isPending}
+                disabled={
+                  isPending ||
+                  isOutOfStock ||
+                  (hasVariations && !selectedVariant)
+                }
                 className="w-full sm:w-auto"
               >
                 <ShoppingCart className="mr-2 h-5 w-5" />
-                {isPending ? "Adding..." : "Add to cart"}
+                {isPending
+                  ? "Adding..."
+                  : isOutOfStock
+                  ? "Out of Stock"
+                  : "Add to cart"}
               </Button>
             </div>
 
-            {/* 3. Secondary Actions: Favorites and Share */}
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
               <Button
                 variant="outline"
@@ -247,8 +326,7 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 disabled={isPending}
                 className="w-full sm:w-auto"
               >
-                <Heart className="mr-2 h-5 w-5" />
-                Add to favorites
+                <Heart className="mr-2 h-5 w-5" /> Add to favorites
               </Button>
               <Button
                 variant="outline"
@@ -257,14 +335,12 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 className="w-full sm:w-auto"
                 aria-label="Share this product"
               >
-                <Share className="mr-2 h-5 w-5" />
-                Share
+                <Share className="mr-2 h-5 w-5" /> Share
               </Button>
             </div>
 
             <Separator className="my-6 md:my-8" />
 
-            {/* Product Description */}
             <div className="space-y-4 text-muted-foreground">
               {product.description.map((paragraph, index) => (
                 <p key={index}>{paragraph}</p>

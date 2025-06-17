@@ -1,3 +1,4 @@
+// app/api/cart/route.ts
 import { NextResponse, NextRequest } from 'next/server';
 import { headers } from 'next/headers';
 import { auth } from '@/auth';
@@ -6,22 +7,11 @@ import Cart from '@/models/Cart';
 import Product from '@/models/Product';
 import { ICartItem } from '@/types';
 
-/**
- * A helper function to retrieve an existing cart or create a new one.
- * This function encapsulates the core logic for managing both authenticated user carts
- * and anonymous session-based carts, including the critical merge operation upon user login.
- *
- * @param {string | null} userId - The ID of the authenticated user, or null for a guest.
- * @param {string | null} sessionToken - The token for the anonymous guest session, or null.
- * @returns {Promise<{ cart: any; newSessionToken?: string }>} An object containing the user's cart and a potential new session token.
- */
-// TODO: Refactor the `any` types for cart items to the specific `ICartItem` type for better type safety.
 async function getOrCreateCart(userId: string | null, sessionToken: string | null): Promise<{ cart: any; newSessionToken?: string }> {
   let userCart = null;
   let sessionCart = null;
   let newSessionToken: string | undefined = undefined;
 
-  // 1. Attempt to find carts for both the authenticated user and the session.
   if (userId) {
     userCart = await Cart.findOne({ user: userId });
   }
@@ -29,67 +19,51 @@ async function getOrCreateCart(userId: string | null, sessionToken: string | nul
     sessionCart = await Cart.findOne({ sessionToken });
   }
 
-  // 2. Merge Logic: This is a crucial step when a user logs in. If they have an existing
-  // session cart (from browsing as a guest) and a user cart (from a previous session),
-  // the items from the session cart are merged into their permanent user cart.
   if (userCart && sessionCart) {
+    // Merge session cart into user cart
     for (const sessionItem of sessionCart.items) {
       const existingItemIndex = userCart.items.findIndex(
-        (userItem: ICartItem) => userItem.product.toString() === sessionItem.product.toString()
+        (userItem: ICartItem) => 
+          userItem.product.toString() === sessionItem.product.toString() &&
+          userItem.variantId?.toString() === sessionItem.variantId?.toString()
       );
       if (existingItemIndex > -1) {
-        // If the item already exists in the user's cart, combine the quantities.
         userCart.items[existingItemIndex].quantity += sessionItem.quantity;
       } else {
-        // If the item is new, add it to the user's cart.
         userCart.items.push(sessionItem);
       }
     }
     await userCart.save();
-    // After a successful merge, the temporary session cart is deleted.
     await Cart.findByIdAndDelete(sessionCart._id);
     return { cart: userCart };
   }
 
-  // 3. Return existing carts if no merge is needed.
   if (userCart) return { cart: userCart };
   if (sessionCart) return { cart: sessionCart };
   
-  // 4. Create New Cart: If no cart exists for either the user or the session.
   if (userId) {
-    // Create a new, empty cart for a newly registered or returning user with no active cart.
     const newCart = new Cart({ user: userId, items: [] });
     await newCart.save();
     return { cart: newCart };
   }
   
-  // For a completely new guest user, generate a unique session token and create a new cart.
-  // This token must be sent back to the client to be stored (e.g., in a cookie) for subsequent requests.
   newSessionToken = crypto.randomUUID();
   const newCart = new Cart({ sessionToken: newSessionToken, items: [] });
   await newCart.save();
   return { cart: newCart, newSessionToken };
 }
 
-/**
- * A Next.js API route handler for retrieving the current user's shopping cart.
- *
- * @param {NextRequest} req - The incoming GET request object.
- * @returns {Promise<NextResponse>} A JSON response containing the cart data.
- */
 export async function GET(req: NextRequest) {
   try {
     await connectDB();
     const session = await auth();
-    // The session token is passed from the client via a custom request header.
     const sessionToken = (await headers()).get('X-Session-Token');
 
     const { cart } = await getOrCreateCart(session?.user?.id || null, sessionToken);
 
-    // Populate the product details for each item in the cart before sending the response.
     const populatedCart = await cart.populate({
       path: 'items.product',
-      select: 'name price imageUrl slug',
+      select: 'name slug',
     });
 
     return NextResponse.json({
@@ -102,50 +76,77 @@ export async function GET(req: NextRequest) {
   }
 }
 
-/**
- * A Next.js API route handler for adding a product to the cart.
- *
- * @param {NextRequest} req - The incoming POST request object.
- * @returns {Promise<NextResponse>} A JSON response with the updated cart data.
- */
 export async function POST(req: NextRequest) {
   try {
     await connectDB();
     const session = await auth();
     const sessionToken = (await headers()).get('X-Session-Token');
-    const { productId, quantity } = await req.json();
+    const { productId, quantity, variantId } = await req.json();
 
     if (!productId || !quantity || quantity < 1) {
       return NextResponse.json({ message: 'Product ID and a valid quantity are required.' }, { status: 400 });
     }
 
     const product = await Product.findById(productId);
-    if (!product) {
-      return NextResponse.json({ message: 'Product not found.' }, { status: 404 });
+    if (!product || !product.isActive) {
+      return NextResponse.json({ message: 'Product not found or is unavailable.' }, { status: 404 });
     }
 
     const { cart, newSessionToken } = await getOrCreateCart(session?.user?.id || null, sessionToken);
 
-    const existingItemIndex = cart.items.findIndex((item: ICartItem) => item.product.toString() === productId);
+    let itemToAdd: ICartItem;
+    
+    // Find a unique identifier for the cart item
+    const findItem = (item: ICartItem) => 
+      item.product.toString() === productId && 
+      item.variantId?.toString() === variantId;
+      
+    const existingItemIndex = cart.items.findIndex(findItem);
 
-    if (existingItemIndex > -1) {
-      // If item exists, increment its quantity.
-      cart.items[existingItemIndex].quantity += quantity;
+    if (variantId) {
+      // Logic for product with variants
+      const variant = product.variants?.find((v: any) => v._id.toString() === variantId);
+      if (!variant) {
+        return NextResponse.json({ message: 'Selected variant not found.' }, { status: 404 });
+      }
+      if (variant.stock < quantity + (cart.items[existingItemIndex]?.quantity || 0)) {
+        return NextResponse.json({ message: 'Insufficient stock for this variant.' }, { status: 400 });
+      }
+      itemToAdd = {
+        product: productId,
+        quantity,
+        variantId,
+        price: variant.price,
+        name: product.name,
+        imageUrl: variant.images?.[0] || product.images[0],
+        variantOptions: variant.options,
+      };
     } else {
-      // If item is new, add it with snapshotted details.
-      cart.items.push({
+      // Logic for simple product without variants
+      if (product.variants && product.variants.length > 0) {
+        return NextResponse.json({ message: 'This product requires a variant selection.' }, { status: 400 });
+      }
+      if (!product.stock || product.stock < quantity + (cart.items[existingItemIndex]?.quantity || 0)) {
+        return NextResponse.json({ message: 'Insufficient stock for this product.' }, { status: 400 });
+      }
+      itemToAdd = {
         product: productId,
         quantity,
         price: product.price,
         name: product.name,
-        imageUrl: product.imageUrl,
-      });
+        imageUrl: product.images[0],
+      };
+    }
+
+    if (existingItemIndex > -1) {
+      cart.items[existingItemIndex].quantity += quantity;
+    } else {
+      cart.items.push(itemToAdd);
     }
 
     await cart.save();
-    const populatedCart = await cart.populate('items.product', 'name price imageUrl slug');
+    const populatedCart = await cart.populate('items.product', 'name slug');
     
-    // If a new session was created for a guest, send the token back to the client in a header.
     const responseHeaders = new Headers();
     if (newSessionToken) {
         responseHeaders.set('X-Session-Token', newSessionToken);
@@ -161,18 +162,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/**
- * A Next.js API route handler for updating the quantity of an item in the cart.
- *
- * @param {NextRequest} req - The incoming PATCH request object.
- * @returns {Promise<NextResponse>} A JSON response with the updated cart data.
- */
 export async function PATCH(req: NextRequest) {
   try {
     await connectDB();
     const session = await auth();
     const sessionToken = (await headers()).get('X-Session-Token');
-    const { productId, quantity } = await req.json();
+    const { productId, quantity, variantId } = await req.json();
     
     if (!productId || typeof quantity !== 'number' || quantity < 0) {
       return NextResponse.json({ message: 'Product ID and a valid quantity (0 or more) are required.' }, { status: 400 });
@@ -180,21 +175,23 @@ export async function PATCH(req: NextRequest) {
 
     const { cart } = await getOrCreateCart(session?.user?.id || null, sessionToken);
 
-    const itemIndex = cart.items.findIndex((item: ICartItem) => item.product.toString() === productId);
+    const findItem = (item: ICartItem) => 
+      item.product.toString() === productId && 
+      item.variantId?.toString() === variantId;
+
+    const itemIndex = cart.items.findIndex(findItem);
     if (itemIndex === -1) {
         return NextResponse.json({ message: 'Item not found in cart.' }, { status: 404 });
     }
 
     if (quantity === 0) {
-      // A quantity of 0 removes the item from the cart.
       cart.items.splice(itemIndex, 1);
     } else {
-      // Otherwise, update the quantity to the new value.
       cart.items[itemIndex].quantity = quantity;
     }
 
     await cart.save();
-    const populatedCart = await cart.populate('items.product', 'name price imageUrl slug');
+    const populatedCart = await cart.populate('items.product', 'name slug');
 
     return NextResponse.json({
       message: 'Cart updated successfully.',
@@ -206,18 +203,12 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-/**
- * A Next.js API route handler for removing an item entirely from the cart.
- *
- * @param {NextRequest} req - The incoming DELETE request object.
- * @returns {Promise<NextResponse>} A JSON response with the updated cart data.
- */
 export async function DELETE(req: NextRequest) {
   try {
     await connectDB();
     const session = await auth();
     const sessionToken = (await headers()).get('X-Session-Token');
-    const { productId } = await req.json();
+    const { productId, variantId } = await req.json();
 
     if (!productId) {
       return NextResponse.json({ message: 'Product ID is required.' }, { status: 400 });
@@ -226,16 +217,17 @@ export async function DELETE(req: NextRequest) {
     const { cart } = await getOrCreateCart(session?.user?.id || null, sessionToken);
 
     const initialLength = cart.items.length;
-    // Filter out the item to be removed.
-    cart.items = cart.items.filter((item: ICartItem) => item.product.toString() !== productId);
     
-    // If the cart length is unchanged, the item was not found.
+    cart.items = cart.items.filter((item: ICartItem) => 
+      !(item.product.toString() === productId && item.variantId?.toString() === variantId)
+    );
+    
     if (cart.items.length === initialLength) {
         return NextResponse.json({ message: 'Item not found in cart.' }, { status: 404 });
     }
 
     await cart.save();
-    const populatedCart = await cart.populate('items.product', 'name price imageUrl slug');
+    const populatedCart = await cart.populate('items.product', 'name slug');
 
     return NextResponse.json({
       message: 'Item removed from cart.',
