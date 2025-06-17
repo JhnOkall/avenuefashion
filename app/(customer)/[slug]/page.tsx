@@ -1,3 +1,4 @@
+// app/(customer)/[slug]/page.tsx
 import { ProductDetails } from "@/components/productDetails";
 import { fetchProductBySlug, fetchReviewsByProduct } from "@/lib/data";
 import { notFound } from "next/navigation";
@@ -5,13 +6,14 @@ import { Suspense } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ProductReviewsClient } from "@/components/productReviews";
 import type { Metadata } from "next";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Terminal } from "lucide-react";
 
 /**
  * A detailed skeleton loader for the product details page.
  */
 const ProductPageSkeleton = () => (
   <>
-    {/* Skeleton for the main product details section */}
     <section className="py-8 md:py-16">
       <div className="mx-auto grid max-w-screen-xl grid-cols-1 gap-8 px-4 lg:grid-cols-2">
         <Skeleton className="h-96 w-full rounded-lg" />
@@ -27,12 +29,6 @@ const ProductPageSkeleton = () => (
         </div>
       </div>
     </section>
-    {/* Skeleton for the product reviews section */}
-    <section className="py-8 md:py-16">
-      <div className="mx-auto max-w-screen-xl px-4">
-        <Skeleton className="h-64 w-full" />
-      </div>
-    </section>
   </>
 );
 
@@ -42,10 +38,9 @@ const ProductPageSkeleton = () => (
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }): Promise<Metadata> {
-  const resolvedParams = await params;
-  const product = await fetchProductBySlug(resolvedParams.slug);
+  const product = await fetchProductBySlug(params.slug);
 
   if (!product) {
     return {
@@ -59,7 +54,9 @@ export async function generateMetadata({
     product.description[0] || `Shop for ${product.name} at Avenue Fashion.`;
   const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const pageUrl = `${siteUrl}/${product.slug}`;
-  const primaryImage = product.images?.[0] || ""; // Use the first image from the array
+
+  // **FIX**: Correctly access the first image from the `images` array.
+  const primaryImage = product.images?.[0] || "";
 
   return {
     title: pageTitle,
@@ -100,28 +97,49 @@ export async function generateMetadata({
 export default async function ProductPage({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: { slug: string };
 }) {
-  const resolvedParams = await params;
-  const product = await fetchProductBySlug(resolvedParams.slug);
+  try {
+    const product = await fetchProductBySlug(params.slug);
 
-  if (!product) {
-    notFound();
+    if (!product) {
+      notFound();
+    }
+
+    // Concurrently fetch reviews ONLY if the product exists.
+    const initialReviewsData = await fetchReviewsByProduct(
+      product._id.toString(),
+      { page: 1, limit: 3 }
+    );
+
+    return (
+      <Suspense fallback={<ProductPageSkeleton />}>
+        <ProductDetails product={product} />
+        <ProductReviewsClient
+          product={product}
+          initialReviewsData={initialReviewsData}
+        />
+      </Suspense>
+    );
+  } catch (error) {
+    console.error(
+      `Failed to load product page for slug "${params.slug}":`,
+      error
+    );
+    // Render a user-friendly error state if data fetching fails
+    return (
+      <section className="bg-background py-8 md:py-16">
+        <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
+          <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Error Loading Product</AlertTitle>
+            <AlertDescription>
+              We couldn't load the product details at this time. Please try
+              refreshing the page or check back later.
+            </AlertDescription>
+          </Alert>
+        </div>
+      </section>
+    );
   }
-
-  // Concurrently fetch reviews ONLY if the product exists.
-  const initialReviewsData = await fetchReviewsByProduct(
-    product._id.toString(),
-    { page: 1, limit: 3 }
-  );
-
-  return (
-    <Suspense fallback={<ProductPageSkeleton />}>
-      <ProductDetails product={product} />
-      <ProductReviewsClient
-        product={product}
-        initialReviewsData={initialReviewsData}
-      />
-    </Suspense>
-  );
 }
