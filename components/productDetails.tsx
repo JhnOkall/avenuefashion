@@ -3,6 +3,7 @@
 import { useState, useTransition, useMemo, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Star, Heart, ShoppingCart, Minus, Plus, Share } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -125,6 +126,7 @@ const VariationSelector = ({
 // =================================================================
 
 export const ProductDetails = ({ product }: { product: IProduct }) => {
+  const router = useRouter();
   const [quantity, setQuantity] = useState(1);
   const [isPending, startTransition] = useTransition();
   const [selectedOptions, setSelectedOptions] = useState<
@@ -134,39 +136,43 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
   const hasVariations =
     product.variationSchema && product.variationSchema.length > 0;
 
-  // Initialize selected options with the first available option for each variation type
   useEffect(() => {
     if (hasVariations) {
       const initialOptions: Record<string, string> = {};
       product.variationSchema!.forEach((v) => {
-        initialOptions[v.name] = v.options[0];
+        if (v.name && v.options.length > 0) {
+          initialOptions[v.name] = v.options[0];
+        }
       });
       setSelectedOptions(initialOptions);
     }
   }, [product, hasVariations]);
 
-  // Memoize the selected variant to avoid re-calculating on every render
-  const selectedVariant = useMemo<IProductVariant | null | undefined>(() => {
+  const selectedVariant = useMemo<IProductVariant | undefined>(() => {
     if (!hasVariations || Object.keys(selectedOptions).length === 0) {
-      return null;
+      return undefined;
     }
     return product.variants?.find((variant) => {
+      // **FIX:** Treat `variant.options` as a plain object because it has been serialized.
+      const variantOptionsObject = variant.options as unknown as Record<
+        string,
+        string
+      >;
       return product.variationSchema!.every((schema) => {
         return (
-          variant.options.get(schema.name) === selectedOptions[schema.name]
+          variantOptionsObject[schema.name] === selectedOptions[schema.name]
         );
       });
     });
   }, [selectedOptions, product, hasVariations]);
 
-  // Determine current price, stock, and image based on selection
   const currentPrice = selectedVariant?.price ?? product.price;
   const currentStock = selectedVariant?.stock ?? product.stock ?? 0;
   const currentImage = selectedVariant?.images?.[0] || product.images[0];
   const isOutOfStock = currentStock < 1;
 
   useEffect(() => {
-    setQuantity(1); // Reset quantity when variant changes
+    setQuantity(1);
   }, [selectedVariant]);
 
   const handleOptionChange = (variationName: string, option: string) => {
@@ -181,15 +187,15 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
           quantity,
           selectedVariant?._id.toString()
         );
+        // **FIX:** Use Object.values for the options object.
+        const variantDesc = selectedVariant
+          ? `(${Object.values(selectedVariant.options).join(", ")})`
+          : "";
         toast.success("Added to Cart", {
-          description: `${quantity} x ${product.name} ${
-            selectedVariant
-              ? `(${Array.from(selectedVariant.options.values()).join(", ")})`
-              : ""
-          } added.`,
+          description: `${quantity} x ${product.name} ${variantDesc} added.`,
           action: {
             label: "View Cart",
-            onClick: () => (window.location.href = "/cart"),
+            onClick: () => router.push("/cart"),
           },
         });
       } catch (error: any) {
@@ -233,7 +239,6 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
       <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
         <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-16">
           <div className="shrink-0">
-            {/* TODO: Enhance this to be an image gallery carousel for multiple images */}
             <div className="relative mx-auto h-96 max-w-md lg:max-w-lg">
               <Image
                 className="h-full w-full rounded-lg object-contain"
@@ -246,7 +251,6 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
               />
             </div>
           </div>
-
           <div className="mt-6 sm:mt-8 lg:mt-0">
             <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
               {product.name}
@@ -267,9 +271,7 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 </Link>
               </div>
             </div>
-
             <Separator className="my-6 md:my-8" />
-
             {hasVariations && (
               <div className="space-y-4">
                 {product.variationSchema?.map((variation) => (
@@ -283,7 +285,10 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                   />
                 ))}
                 {!selectedVariant &&
-                  Object.keys(selectedOptions).length > 0 && (
+                  Object.keys(selectedOptions).length > 0 &&
+                  product.variationSchema &&
+                  Object.keys(selectedOptions).length ===
+                    product.variationSchema.length && (
                     <p className="text-sm text-destructive">
                       This combination is not available.
                     </p>
@@ -291,7 +296,6 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 <Separator className="my-6 md:my-8" />
               </div>
             )}
-
             <div className="mt-6 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
               <QuantitySelector
                 quantity={quantity}
@@ -316,7 +320,6 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                   : "Add to cart"}
               </Button>
             </div>
-
             <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-center">
               <Button
                 variant="outline"
@@ -337,9 +340,7 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
                 <Share className="mr-2 h-5 w-5" /> Share
               </Button>
             </div>
-
             <Separator className="my-6 md:my-8" />
-
             <div className="space-y-4 text-muted-foreground">
               {product.description.map((paragraph, index) => (
                 <p key={index}>{paragraph}</p>
