@@ -51,6 +51,7 @@ const OrderItem = ({ item }: { item: IOrderItem }) => {
           >
             {item.name}
           </Link>
+          {/* FIX: Treat variantOptions as a plain object */}
           {item.variantOptions && (
             <p className="text-sm text-muted-foreground">
               {Object.entries(item.variantOptions)
@@ -104,7 +105,7 @@ export const OrderTracking = ({ order }: OrderTrackingProps) => {
               <CardContent className="divide-y divide-border p-0">
                 {order.items.map((item) => (
                   <OrderItem
-                    key={`${item.product._id.toString()}-${item.variantId?.toString()}`}
+                    key={`${item.product.toString()}-${item.variantId?.toString()}`}
                     item={item}
                   />
                 ))}

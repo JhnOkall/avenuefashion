@@ -121,6 +121,64 @@ const VariationSelector = ({
   </div>
 );
 
+// --- NEW IMAGE GALLERY COMPONENT ---
+const ProductImageGallery = ({ images }: { images: string[] }) => {
+  const [activeImage, setActiveImage] = useState(images[0]);
+
+  // Update active image if the images array changes (e.g., variant selection)
+  useEffect(() => {
+    if (images && images.length > 0) {
+      setActiveImage(images[0]);
+    }
+  }, [images]);
+
+  if (!images || images.length === 0) {
+    return (
+      <div className="flex h-96 w-full items-center justify-center rounded-lg bg-muted text-muted-foreground">
+        No Image Available
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      {/* Main Image */}
+      <div className="relative h-96 w-full overflow-hidden rounded-lg">
+        <Image
+          src={activeImage}
+          alt="Product Image"
+          fill
+          className="object-contain"
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          key={activeImage} // Re-render on image change
+        />
+      </div>
+      {/* Thumbnails */}
+      {images.length > 1 && (
+        <div className="grid grid-cols-5 gap-2">
+          {images.map((img) => (
+            <button
+              key={img}
+              onClick={() => setActiveImage(img)}
+              className={cn(
+                "relative aspect-square w-full overflow-hidden rounded-md border-2 transition-colors",
+                activeImage === img ? "border-primary" : "border-transparent"
+              )}
+            >
+              <Image
+                src={img}
+                alt="Product thumbnail"
+                fill
+                className="object-cover"
+              />
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // =================================================================
 // MAIN COMPONENT
 // =================================================================
@@ -149,26 +207,30 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
   }, [product, hasVariations]);
 
   const selectedVariant = useMemo<IProductVariant | undefined>(() => {
-    if (!hasVariations || Object.keys(selectedOptions).length === 0) {
+    if (!hasVariations || Object.keys(selectedOptions).length === 0)
       return undefined;
-    }
     return product.variants?.find((variant) => {
-      // **FIX:** Treat `variant.options` as a plain object because it has been serialized.
       const variantOptionsObject = variant.options as unknown as Record<
         string,
         string
       >;
-      return product.variationSchema!.every((schema) => {
-        return (
+      return product.variationSchema!.every(
+        (schema) =>
           variantOptionsObject[schema.name] === selectedOptions[schema.name]
-        );
-      });
+      );
     });
   }, [selectedOptions, product, hasVariations]);
 
   const currentPrice = selectedVariant?.price ?? product.price;
   const currentStock = selectedVariant?.stock ?? product.stock ?? 0;
-  const currentImage = selectedVariant?.images?.[0] || product.images[0];
+
+  // --- DYNAMIC IMAGE LOGIC ---
+  // Use variant images if they exist and are not empty, otherwise fall back to main product images.
+  const galleryImages =
+    selectedVariant?.images && selectedVariant.images.length > 0
+      ? selectedVariant.images
+      : product.images;
+
   const isOutOfStock = currentStock < 1;
 
   useEffect(() => {
@@ -238,20 +300,13 @@ export const ProductDetails = ({ product }: { product: IProduct }) => {
     <section className="bg-background py-8 md:py-16">
       <div className="mx-auto max-w-screen-xl px-4 2xl:px-0">
         <div className="lg:grid lg:grid-cols-2 lg:gap-8 xl:gap-16">
+          {/* --- UPDATED IMAGE SECTION --- */}
           <div className="shrink-0">
-            <div className="relative mx-auto h-96 max-w-md lg:max-w-lg">
-              <Image
-                className="h-full w-full rounded-lg object-contain"
-                src={currentImage}
-                alt={product.name}
-                fill
-                sizes="(max-width: 1024px) 100vw, 50vw"
-                priority
-                key={currentImage}
-              />
-            </div>
+            <ProductImageGallery images={galleryImages} />
           </div>
+
           <div className="mt-6 sm:mt-8 lg:mt-0">
+            {/* The rest of the component's JSX remains the same */}
             <h1 className="text-xl font-semibold text-foreground sm:text-2xl">
               {product.name}
             </h1>
