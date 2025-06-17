@@ -1,4 +1,3 @@
-// app/(customer)/[slug]/page.tsx
 import { ProductDetails } from "@/components/productDetails";
 import { fetchProductBySlug, fetchReviewsByProduct } from "@/lib/data";
 import { notFound } from "next/navigation";
@@ -38,9 +37,10 @@ const ProductPageSkeleton = () => (
 export async function generateMetadata({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
-  const product = await fetchProductBySlug(params.slug);
+  const resolvedParams = await params;
+  const product = await fetchProductBySlug(resolvedParams.slug);
 
   if (!product) {
     return {
@@ -52,7 +52,7 @@ export async function generateMetadata({
   const pageTitle = `${product.name} | Avenue Fashion`;
   const pageDescription =
     product.description[0] || `Shop for ${product.name} at Avenue Fashion.`;
-  const siteUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const siteUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
   const pageUrl = `${siteUrl}/${product.slug}`;
 
   // **FIX**: Correctly access the first image from the `images` array.
@@ -97,10 +97,11 @@ export async function generateMetadata({
 export default async function ProductPage({
   params,
 }: {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }) {
   try {
-    const product = await fetchProductBySlug(params.slug);
+    const resolvedParams = await params;
+    const product = await fetchProductBySlug(resolvedParams.slug);
 
     if (!product) {
       notFound();
@@ -122,10 +123,7 @@ export default async function ProductPage({
       </Suspense>
     );
   } catch (error) {
-    console.error(
-      `Failed to load product page for slug "${params.slug}":`,
-      error
-    );
+    console.error("Failed to load product page:", error);
     // Render a user-friendly error state if data fetching fails
     return (
       <section className="bg-background py-8 md:py-16">
