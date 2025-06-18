@@ -8,6 +8,7 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  TooltipProps, // Import TooltipProps for custom tooltip typing
 } from "recharts";
 import { DollarSign, ShoppingBag, Users, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +60,37 @@ const StatCard = ({
   </Card>
 );
 
+// --- NEW: Custom Tooltip for the Chart ---
+/**
+ * A custom tooltip component styled to match the shadcn/ui theme.
+ * This provides a consistent look and feel with other UI elements like popovers.
+ */
+const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+  if (active && payload && payload.length) {
+    // Format the date label for readability
+    const formattedLabel = new Date(label).toLocaleDateString("en-KE", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return (
+      <div className="rounded-lg border bg-popover p-2 text-sm shadow-sm text-popover-foreground">
+        <p className="font-bold">{formattedLabel}</p>
+        <p className="text-muted-foreground">
+          Revenue:{" "}
+          <span className="font-medium text-popover-foreground">
+            {formatPrice(payload[0].value as number)}
+          </span>
+        </p>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+
 /**
  * A responsive bar chart component using Recharts to visualize revenue over time.
  *
@@ -72,14 +104,16 @@ const OverviewChart = ({
 }) => (
   <ResponsiveContainer width="100%" height={350}>
     <BarChart data={data}>
-      <CartesianGrid strokeDasharray="3 3" />
+      {/* Grid lines now use the theme's border color for subtlety */}
+      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
+      
+      {/* X-axis text now uses muted-foreground for better contrast and theme alignment */}
       <XAxis
         dataKey="date"
-        stroke="#111827"
+        stroke="hsl(var(--muted-foreground))"
         fontSize={12}
         tickLine={false}
         axisLine={false}
-        // Formats the x-axis labels to a more readable date format.
         tickFormatter={(value) =>
           new Date(value).toLocaleDateString("en-KE", {
             month: "short",
@@ -87,22 +121,24 @@ const OverviewChart = ({
           })
         }
       />
+      
+      {/* Y-axis text also uses muted-foreground */}
       <YAxis
-        stroke="#111827"
+        stroke="hsl(var(--muted-foreground))"
         fontSize={12}
         tickLine={false}
         axisLine={false}
-        // Formats the y-axis labels to display large numbers in thousands (e.g., "$5k").
         tickFormatter={(value) => `Ksh. ${Number(value) / 1000}k`}
       />
+      
+      {/* The Tooltip now uses our custom component for a fully themed experience */}
       <Tooltip
-        cursor={{ fill: "hsl(var(--muted))" }}
-        contentStyle={{
-          backgroundColor: "hsl(var(--background))",
-          border: "1px solid hsl(var(--border))",
-        }}
-        formatter={(value: number) => [formatPrice(value), "Revenue"]}
+        cursor={{ fill: "hsl(var(--accent))" }} // Softer hover effect using the theme's accent color
+        content={<CustomTooltip />}
       />
+
+      {/* The bar color is correctly driven by the theme's primary color.
+          To change this color, update the `--primary` variable in your global CSS. */}
       <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
     </BarChart>
   </ResponsiveContainer>
