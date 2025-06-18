@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 const siteUrl =
-  process.env.NEXT_PUBLIC_BASE_URL || "https://new.avenuefashion.co.ke";
+  process.env.NEXT_PUBLIC_BASE_URL || "https://avenuefashion.co.ke";
 
 export const metadata: Metadata = {
   title: {

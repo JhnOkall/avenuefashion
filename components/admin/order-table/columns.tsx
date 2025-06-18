@@ -69,15 +69,17 @@ export const columns = (
      */
     accessorKey: "orderId",
     header: "Order ID",
-    cell: ({ row }) => (
-      // FIX: Make the link dynamic
-      <Link
-        href={`/admin/orders/${row.original.orderId}`}
-        className="font-medium hover:underline"
-      >
-        {row.getValue("orderId")}
-      </Link>
-    ),
+    cell: ({ row }) => {
+      const cleanOrderId = row.original.orderId.replace("#", "");
+      return (
+        <Link
+          href={`/orders/${cleanOrderId}`}
+          className="font-medium hover:underline"
+        >
+          {row.getValue("orderId")}
+        </Link>
+      );
+    },
   },
   {
     /**
@@ -152,6 +154,7 @@ export const columns = (
     id: "actions",
     cell: ({ row }) => {
       const order = row.original;
+      const cleanOrderId = order.orderId.replace("#", "");
       // Define all possible statuses for the admin to choose from
       const orderStatuses: IOrder["status"][] = [
         "Pending",
@@ -172,9 +175,7 @@ export const columns = (
             <DropdownMenuLabel>Actions</DropdownMenuLabel>
             {/* FIX: Dynamic link to view order details */}
             <DropdownMenuItem asChild>
-              <Link href={`/admin/orders/${order.orderId}`}>
-                View Order Details
-              </Link>
+              <Link href={`/orders/${cleanOrderId}`}>View Order Details</Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuSub>
