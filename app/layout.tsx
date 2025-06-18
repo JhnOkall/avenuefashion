@@ -11,6 +11,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { PWAInstallPrompt } from "@/components/PWAInstallPrompt";
 import { CookieConsent } from "@/components/CookieConsent";
+import { NotificationPrompt } from "@/components/NotificationPrompt";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -353,6 +354,9 @@ export default async function RootLayout({
 
               {/* PWA Features */}
               <PWAInstallPrompt />
+
+              {/* Notification Features */}
+              <NotificationPrompt />
 
               {/* Privacy Compliance */}
               <CookieConsent />

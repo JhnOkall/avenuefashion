@@ -5,6 +5,8 @@ import connectDB from '@/lib/db';
 import Order from '@/models/Order';
 import Cart from '@/models/Cart';
 import { IOrder } from '@/types';
+// --- 1. IMPORT THE NOTIFICATION SERVICE ---
+import { sendNotificationToUser } from '@/lib/notification-service';
 
 /**
  * Internal webhook handler for Avenue Fashion.
@@ -76,7 +78,24 @@ export async function POST(req: Request) {
         
         await order.save();
 
-        // Step 4: Clear the user's cart AFTER successful payment
+        // --- 4. TRIGGER NOTIFICATION ---
+        // This is the ideal place. The order status is updated in the DB,
+        // so we can now confidently notify the user.
+        try {
+            await sendNotificationToUser(order.user.toString(), {
+                title: 'Payment Received! 💳',
+                body: `We've successfully received payment for your order #${order.orderId}. It's now being processed.`,
+                url: `/me/orders/${order.orderId}`,
+            });
+        } catch (notificationError) {
+            // Log the error but don't fail the webhook processing.
+            // The payment update is more critical than the notification.
+            console.error("Failed to send payment confirmation notification:", notificationError);
+        }
+        // --- END NOTIFICATION TRIGGER ---
+
+        // Step 5: Clear the user's cart AFTER successful payment
+        // This step is now moved after the notification trigger.
         const userCart = await Cart.findOne({ user: order.user });
         if (userCart) {
           userCart.items = [];
@@ -93,6 +112,6 @@ export async function POST(req: Request) {
     }
   }
 
-  // Step 5: Acknowledge receipt of the event
+  // Acknowledge receipt of the event
   return NextResponse.json({ status: 'ok' });
 }

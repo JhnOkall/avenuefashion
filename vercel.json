@@ -1,0 +1,8 @@
+{
+    "crons": [
+      {
+        "path": "/api/cron/send-promo-notification",
+        "schedule": "0 10 */2 * *"
+      }
+    ]
+  }

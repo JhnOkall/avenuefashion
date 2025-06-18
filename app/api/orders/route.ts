@@ -8,6 +8,8 @@ import Product from '@/models/Product';
 import Voucher from '@/models/Voucher'; 
 import mongoose from 'mongoose';
 import { ICity, IVoucher, ICartItem } from '@/types';
+// --- 1. IMPORT THE NOTIFICATION SERVICE ---
+import { sendNotificationToAdmins, sendNotificationToUser } from '@/lib/notification-service';
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -19,22 +21,28 @@ export async function POST(req: Request) {
   const dbSession = await mongoose.startSession();
   dbSession.startTransaction();
 
+  // Define newOrder outside the try block to make it accessible in the finally block
+  let newOrder = null;
+
   try {
     await connectDB();
 
     const { addressId, paymentMethod, voucherCode } = await req.json();
 
     if (!addressId || !paymentMethod) {
+      await dbSession.abortTransaction();
       return NextResponse.json({ message: 'Address and payment method are required.' }, { status: 400 });
     }
     
     const cart = await Cart.findOne({ user: session.user.id }).session(dbSession);
     if (!cart || cart.items.length === 0) {
+      await dbSession.abortTransaction();
       return NextResponse.json({ message: 'Your cart is empty. Cannot place order.' }, { status: 400 });
     }
 
     const address = await Address.findOne({ _id: addressId, user: session.user.id }).populate('city').session(dbSession);
     if (!address || !address.city) {
+      await dbSession.abortTransaction();
       return NextResponse.json({ message: 'Delivery address is invalid or incomplete.' }, { status: 404 });
     }
 
@@ -47,6 +55,7 @@ export async function POST(req: Request) {
     if (voucherCode) {
       validVoucher = await Voucher.findOne({ code: voucherCode.toUpperCase() }).session(dbSession);
       if (!validVoucher || !validVoucher.isActive || (validVoucher.expiresAt && new Date() > new Date(validVoucher.expiresAt))) {
+        await dbSession.abortTransaction();
         return NextResponse.json({ message: 'The provided voucher code is invalid or expired.' }, { status: 400 });
       }
       discount = validVoucher.discountType === 'percentage' ? subtotal * (validVoucher.discountValue / 100) : validVoucher.discountValue;
@@ -75,9 +84,9 @@ export async function POST(req: Request) {
       }
     }
     
-    const newOrder = new Order({
+    const orderInstance = new Order({ // Renamed to avoid shadowing
       user: session.user.id,
-      items: cart.items, // The cart item structure now matches the order item structure
+      items: cart.items, 
       pricing: { subtotal, shipping, tax, discount, total },
       shippingDetails: {
         name: address.recipientName,
@@ -96,7 +105,8 @@ export async function POST(req: Request) {
       appliedVoucher: validVoucher ? validVoucher._id : undefined,
     });
 
-    await newOrder.save({ session: dbSession });
+    // Assign the saved order to the outer scope variable
+    newOrder = await orderInstance.save({ session: dbSession });
 
     // --- Post-Order Actions: Clear the cart ---
     cart.items = [];
@@ -104,6 +114,31 @@ export async function POST(req: Request) {
 
     // If all operations were successful, commit the transaction
     await dbSession.commitTransaction();
+
+   // --- 2. TRIGGER NOTIFICATIONS (User and Admin) ---
+    // This now sends notifications to both the user and all admins in parallel.
+    if (newOrder) {
+      // Promise for sending notification to the customer
+      const userNotificationPromise = sendNotificationToUser(session.user.id, {
+        title: 'Order Confirmed! 🎉',
+        body: `Your order #${newOrder.orderId} has been successfully placed.`,
+        url: `/me/orders/${newOrder.orderId}`,
+      });
+
+      // Promise for sending notification to all admins
+      const adminNotificationPromise = sendNotificationToAdmins({
+        title: 'New Order Received! 📦',
+        body: `Order #${newOrder.orderId} from ${newOrder.shippingDetails.name} for KES ${newOrder.pricing.total.toFixed(2)}.`,
+        url: `/admin/orders/${newOrder.orderId}`, // Direct link to admin order detail page
+      });
+
+      // Execute both promises concurrently and log any errors without failing the request.
+      Promise.all([userNotificationPromise, adminNotificationPromise]).catch(notificationError => {
+        console.error("Failed to send one or more order confirmation notifications:", notificationError);
+      });
+    }
+    // --- END NOTIFICATION TRIGGER ---
+
 
     return NextResponse.json({
       message: 'Order placed successfully.',

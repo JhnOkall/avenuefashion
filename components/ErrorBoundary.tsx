@@ -1,8 +1,27 @@
 "use client";
 
 import React from "react";
-import { AlertTriangle, RefreshCw, Home } from "lucide-react";
 import Link from "next/link";
+import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+
+// =================================================================
+// TYPES & INTERFACES
+// =================================================================
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+}
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -10,10 +29,14 @@ interface ErrorBoundaryState {
   errorInfo?: React.ErrorInfo;
 }
 
-interface ErrorBoundaryProps {
-  children: React.ReactNode;
-}
+// =================================================================
+// CLASS-BASED ERROR BOUNDARY
+// =================================================================
 
+/**
+ * A React class component that catches JavaScript errors anywhere in its
+ * child component tree, logs those errors, and displays a fallback UI.
+ */
 export class ErrorBoundary extends React.Component<
   ErrorBoundaryProps,
   ErrorBoundaryState
@@ -24,88 +47,75 @@ export class ErrorBoundary extends React.Component<
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    // Update state so the next render will show the fallback UI.
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.setState({
-      error,
-      errorInfo,
-    });
-
-    // Log error to your error reporting service
-    console.error("Error Boundary caught an error:", error, errorInfo);
-
-    // You can also log to an external service like Sentry
-    // Sentry.captureException(error, { extra: errorInfo });
+    this.setState({ error, errorInfo });
+    // You can log the error to an error reporting service here
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 
+  /** Resets the error state, attempting to re-render the children. */
   handleReset = () => {
     this.setState({ hasError: false, error: undefined, errorInfo: undefined });
   };
 
-  handleGoHome = () => {
-    window.location.href = "/";
-  };
-
   render() {
     if (this.state.hasError) {
+      // You can render any custom fallback UI
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 p-4">
-          <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-xl shadow-xl p-8 text-center">
-            <div className="mb-6">
-              <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+        <div className="flex min-h-screen items-center justify-center bg-background p-4">
+          <Card className="w-full max-w-lg text-center">
+            <CardHeader>
+              <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
+              <CardTitle className="mt-4 text-2xl">
                 Oops! Something went wrong
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300">
-                We're sorry for the inconvenience. An unexpected error occurred
-                while loading Avenue Fashion.
-              </p>
-            </div>
-
-            {process.env.NODE_ENV === "development" && this.state.error && (
-              <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg text-left">
-                <h3 className="font-semibold text-red-800 dark:text-red-300 mb-2">
-                  Error Details (Development Mode):
-                </h3>
-                <pre className="text-xs text-red-700 dark:text-red-400 whitespace-pre-wrap overflow-auto max-h-32">
-                  {this.state.error.toString()}
-                  {this.state.errorInfo?.componentStack}
-                </pre>
+              </CardTitle>
+              <CardDescription>
+                We're sorry for the inconvenience. An unexpected error occurred.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {process.env.NODE_ENV === "development" && this.state.error && (
+                <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 text-left">
+                  <h3 className="mb-2 font-semibold text-destructive">
+                    Error Details (Development Mode)
+                  </h3>
+                  <pre className="max-h-32 overflow-auto whitespace-pre-wrap text-xs text-destructive">
+                    {this.state.error.toString()}
+                    {this.state.errorInfo?.componentStack}
+                  </pre>
+                </div>
+              )}
+              <div className="flex w-full flex-col gap-3 sm:flex-row">
+                <Button onClick={this.handleReset} className="w-full">
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Try Again
+                </Button>
+                <Button variant="secondary" className="w-full" asChild>
+                  <Link href="/">
+                    <Home className="mr-2 h-4 w-4" />
+                    Go Home
+                  </Link>
+                </Button>
               </div>
-            )}
-
-            <div className="space-y-3">
-              <button
-                onClick={this.handleReset}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                Try Again
-              </button>
-
-              <button
-                onClick={this.handleGoHome}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white font-medium rounded-lg transition-colors"
-              >
-                <Home className="w-4 h-4" />
-                Go Home
-              </button>
-            </div>
-
-            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                If this problem persists, please contact our support team at{" "}
-                <Link
+            </CardContent>
+            <CardFooter className="flex-col gap-4 pt-4">
+              <Separator />
+              <p className="text-sm text-muted-foreground">
+                If the problem persists, please contact{" "}
+                <a
                   href="mailto:support@avenuefashion.co.ke"
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  className="font-medium text-primary underline-offset-4 hover:underline"
                 >
-                  support@avenuefashion.co.ke
-                </Link>
+                  our support team
+                </a>
+                .
               </p>
-            </div>
-          </div>
+            </CardFooter>
+          </Card>
         </div>
       );
     }
@@ -114,33 +124,40 @@ export class ErrorBoundary extends React.Component<
   }
 }
 
-// Alternative functional component version using react-error-boundary
+// =================================================================
+// FUNCTIONAL ERROR FALLBACK (for react-error-boundary)
+// =================================================================
+
+interface ErrorFallbackProps {
+  error: Error;
+  resetErrorBoundary: () => void;
+}
+
+/**
+ * A functional component designed as a fallback for the `react-error-boundary`
+ * library, providing a user-friendly message and a recovery action.
+ */
 export function ErrorFallback({
   error,
   resetErrorBoundary,
-}: {
-  error: Error;
-  resetErrorBoundary: () => void;
-}) {
+}: ErrorFallbackProps) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-red-100 dark:from-red-950 dark:to-red-900 p-4">
-      <div className="max-w-md w-full bg-white dark:bg-gray-900 rounded-xl shadow-xl p-8 text-center">
-        <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-          Something went wrong
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300 mb-6">
-          We encountered an unexpected error. Please try refreshing the page.
-        </p>
-
-        <button
-          onClick={resetErrorBoundary}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors mx-auto"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Try Again
-        </button>
-      </div>
+    <div className="flex min-h-screen items-center justify-center bg-background p-4">
+      <Card className="w-full max-w-md text-center">
+        <CardHeader>
+          <AlertTriangle className="mx-auto h-12 w-12 text-destructive" />
+          <CardTitle className="mt-4 text-2xl">Something went wrong</CardTitle>
+          <CardDescription>
+            We encountered an unexpected error. Please try refreshing the page.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button onClick={resetErrorBoundary}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Try Again
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
