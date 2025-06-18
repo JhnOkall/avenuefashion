@@ -36,14 +36,11 @@ import { MyOrdersApiResponse } from "@/lib/data";
 // TYPES & HELPERS
 // =================================================================
 
-/**
- * A type alias for the possible statuses of an order.
- */
 type OrderStatus = IOrder["status"];
 
 /**
- * Configuration object that maps each order status to a specific icon,
- * badge variant, and display label. This centralizes status-related UI logic.
+ * --- FIX: Updated configuration to match the new delivery statuses. ---
+ * Maps each delivery status to a specific icon, badge variant, and display label.
  */
 const statusConfig: Record<
   OrderStatus,
@@ -53,20 +50,13 @@ const statusConfig: Record<
     label: string;
   }
 > = {
+  Confirmed: { icon: CheckCircle2, variant: "secondary", label: "Confirmed" },
   Processing: { icon: Hourglass, variant: "default", label: "Processing" },
-  Pending: { icon: Hourglass, variant: "default", label: "Pending" },
-  "In transit": { icon: Truck, variant: "secondary", label: "In Transit" },
-  Confirmed: { icon: CheckCircle2, variant: "success", label: "Confirmed" },
+  "In transit": { icon: Truck, variant: "default", label: "In Transit" },
   Delivered: { icon: CheckCircle2, variant: "success", label: "Delivered" },
   Cancelled: { icon: XCircle, variant: "destructive", label: "Cancelled" },
 };
 
-/**
- * Formats a numeric price into a localized currency string.
- * @param {number} price - The price to format.
- * @returns {string} The formatted currency string.
- */
-// TODO: Relocate this helper to a shared `utils/formatters.ts` file for application-wide reusability.
 const formatPrice = (price: number) => {
   return new Intl.NumberFormat("en-KE", {
     style: "currency",
@@ -78,16 +68,9 @@ const formatPrice = (price: number) => {
 // SUB-COMPONENTS
 // =================================================================
 
-/**
- * A specialized Badge component for displaying an order's status with an
- * icon and color-coding based on the `statusConfig`.
- *
- * @param {object} props - The component props.
- * @param {OrderStatus} props.status - The status of the order.
- */
 const OrderStatusBadge = ({ status }: { status: OrderStatus }) => {
-  const config = statusConfig[status] || statusConfig["Pending"];
-  // TODO: The `as any` cast is a workaround. Define a custom type that maps status strings to valid Badge variants for improved type safety.
+  // Fallback to 'Confirmed' if an unexpected status is encountered.
+  const config = statusConfig[status] || statusConfig["Confirmed"];
   return (
     <Badge variant={config.variant as any} className="py-1">
       <config.icon className="mr-1.5 h-3 w-3" />
@@ -96,13 +79,13 @@ const OrderStatusBadge = ({ status }: { status: OrderStatus }) => {
   );
 };
 
-/**
- * Renders a card summarizing a single order, including its key details and action buttons.
- *
- * @param {object} props - The component props.
- * @param {IOrder} props.order - The order object to display.
- */
 const OrderCard = ({ order }: { order: IOrder }) => {
+  // --- FIX: Improved button logic based on new delivery statuses ---
+  const isCancellable =
+    order.status === "Confirmed" || order.status === "Processing";
+  const isReorderable =
+    order.status === "Delivered" || order.status === "Cancelled";
+
   return (
     <Card>
       <CardHeader className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -133,14 +116,12 @@ const OrderCard = ({ order }: { order: IOrder }) => {
         <Separator orientation="vertical" className="hidden h-12 lg:block" />
       </CardHeader>
       <CardFooter className="flex flex-col items-stretch justify-end gap-2 p-4 pt-0 sm:flex-row sm:items-center">
-        {/* TODO: Implement the `Cancel Order` functionality. This will require a backend API endpoint and a confirmation dialog. */}
-        {order.status !== "Confirmed" && order.status !== "Cancelled" && (
+        {isCancellable && (
           <Button variant="destructive" className="w-full sm:w-auto" disabled>
             Cancel Order
           </Button>
         )}
-        {/* TODO: Implement the `Order Again` functionality. This should create a new cart with the items from this order. */}
-        {(order.status === "Confirmed" || order.status === "Cancelled") && (
+        {isReorderable && (
           <Button className="w-full sm:w-auto" disabled>
             <RotateCw className="mr-2 h-4 w-4" />
             Order Again
@@ -162,38 +143,21 @@ interface OrdersListProps {
   ordersData: MyOrdersApiResponse;
 }
 
-/**
- * A client component that displays a filterable and paginated list of the user's orders.
- * It manages its state (filters, page number) through URL search parameters,
- * which makes the view shareable and refresh-friendly.
- *
- * @param {OrdersListProps} props - Component props containing the initial orders data.
- */
 export const OrdersList = ({ ordersData }: OrdersListProps) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: orders, totalPages, currentPage } = ordersData;
 
-  /**
-   * Handles changes in filters or pagination by updating the URL search parameters.
-   * This triggers a navigation event that re-fetches server data for the new view.
-   *
-   * @param {'status' | 'page'} key - The URL parameter to update.
-   * @param {string | number} value - The new value for the parameter.
-   */
   const handleUrlStateChange = (
     key: "status" | "page",
     value: string | number
   ) => {
     const currentParams = new URLSearchParams(searchParams);
     currentParams.set(key, String(value));
-
-    // When changing a filter, always reset the view to the first page.
     if (key === "status") {
       currentParams.delete("page");
     }
-
     router.replace(`${pathname}?${currentParams.toString()}`);
   };
 
@@ -206,6 +170,7 @@ export const OrdersList = ({ ordersData }: OrdersListProps) => {
               My Orders
             </h2>
             <div className="mt-6 flex flex-wrap items-center gap-2 sm:mt-0 sm:gap-4">
+              {/* --- FIX: Updated filter dropdown with new delivery statuses --- */}
               <Select
                 defaultValue={searchParams.get("status") || "all"}
                 onValueChange={(value) => handleUrlStateChange("status", value)}
@@ -215,9 +180,10 @@ export const OrdersList = ({ ordersData }: OrdersListProps) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All orders</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
-                  <SelectItem value="In transit">In transit</SelectItem>
                   <SelectItem value="Confirmed">Confirmed</SelectItem>
+                  <SelectItem value="Processing">Processing</SelectItem>
+                  <SelectItem value="In transit">In Transit</SelectItem>
+                  <SelectItem value="Delivered">Delivered</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>
                 </SelectContent>
               </Select>
@@ -252,7 +218,6 @@ export const OrdersList = ({ ordersData }: OrdersListProps) => {
                     }
                   />
                 </PaginationItem>
-                {/* TODO: For a large number of pages, implement pagination with ellipsis (...) to avoid rendering an excessively long list of page numbers. */}
                 {[...Array(totalPages)].map((_, i) => (
                   <PaginationItem key={i}>
                     <PaginationLink
