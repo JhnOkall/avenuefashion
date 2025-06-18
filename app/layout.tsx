@@ -372,9 +372,6 @@ export default async function RootLayout({
         <Script
           src="https://js.paystack.co/v2/inline.js"
           strategy="lazyOnload"
-          onLoad={() => {
-            console.log("Paystack script loaded successfully");
-          }}
         />
 
         {/* Service Worker Registration */}
