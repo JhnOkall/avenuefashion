@@ -1,16 +1,34 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Cookie,
   Settings,
-  X,
   Check,
   Shield,
   BarChart3,
   Target,
+  LucideIcon,
+  Loader2,
 } from "lucide-react";
-import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+
+// =================================================================
+// TYPES & DEFAULTS
+// =================================================================
 
 type CookiePreferences = {
   necessary: boolean;
@@ -20,12 +38,64 @@ type CookiePreferences = {
 };
 
 const defaultPreferences: CookiePreferences = {
-  necessary: true, // Always true, can't be disabled
+  necessary: true, // Always true, cannot be disabled
   analytics: false,
   marketing: false,
   personalization: false,
 };
 
+// =================================================================
+// SUB-COMPONENTS
+// =================================================================
+
+interface PreferenceItemProps {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  checked: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  disabled?: boolean;
+}
+
+/**
+ * Renders a single cookie preference item with a title, description, and toggle switch.
+ */
+const PreferenceItem = ({
+  icon: Icon,
+  title,
+  description,
+  ...switchProps
+}: PreferenceItemProps) => (
+  <div className="flex flex-col gap-4 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex items-start gap-4">
+      <Icon className="mt-1 h-6 w-6 shrink-0 text-muted-foreground" />
+      <div>
+        <h4 className="font-semibold text-foreground">{title}</h4>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+    <div className="flex items-center justify-end gap-2 sm:justify-start">
+      {switchProps.disabled && (
+        <span className="text-xs font-medium text-primary">Always Active</span>
+      )}
+      <Switch
+        checked={switchProps.checked}
+        onCheckedChange={switchProps.onCheckedChange}
+        disabled={switchProps.disabled}
+        aria-label={`Toggle ${title}`}
+      />
+    </div>
+  </div>
+);
+
+// =================================================================
+// MAIN COMPONENT
+// =================================================================
+
+/**
+ * A client component that displays a cookie consent banner and allows users to manage
+ * their cookie preferences in a dialog modal. It persists choices to localStorage.
+ */
 export function CookieConsent() {
   const [showBanner, setShowBanner] = useState(false);
   const [showPreferences, setShowPreferences] = useState(false);
@@ -34,113 +104,59 @@ export function CookieConsent() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Check if user has already made a choice
     const consent = localStorage.getItem("avenue-fashion-cookie-consent");
     const savedPreferences = localStorage.getItem(
       "avenue-fashion-cookie-preferences"
     );
 
     if (!consent) {
-      // Show banner after a short delay
-      const timer = setTimeout(() => {
-        setShowBanner(true);
-      }, 2000);
+      // Show banner after a delay to avoid being intrusive
+      const timer = setTimeout(() => setShowBanner(true), 1500);
       return () => clearTimeout(timer);
     } else if (savedPreferences) {
-      // Apply saved preferences
-      const parsed = JSON.parse(savedPreferences);
-      setPreferences(parsed);
-      applyPreferences(parsed);
+      const parsedPrefs = JSON.parse(savedPreferences);
+      setPreferences(parsedPrefs);
+      // Silently apply preferences on subsequent visits
+      applyPreferences(parsedPrefs);
     }
   }, []);
 
   const applyPreferences = (prefs: CookiePreferences) => {
-    // Enable/disable analytics
-    if (prefs.analytics && typeof window !== "undefined") {
-      // Enable Google Analytics
-      (window as any).gtag?.("consent", "update", {
-        analytics_storage: "granted",
+    // This is where you would integrate with your analytics, marketing, etc.
+    // Example for Google Tag Manager:
+    if (typeof window !== "undefined" && (window as any).gtag) {
+      (window as any).gtag("consent", "update", {
+        analytics_storage: prefs.analytics ? "granted" : "denied",
+        ad_storage: prefs.marketing ? "granted" : "denied",
+        ad_user_data: prefs.marketing ? "granted" : "denied",
+        ad_personalization: prefs.marketing ? "granted" : "denied",
       });
     }
 
-    // Enable/disable marketing cookies
-    if (prefs.marketing && typeof window !== "undefined") {
-      (window as any).gtag?.("consent", "update", {
-        ad_storage: "granted",
-        ad_user_data: "granted",
-        ad_personalization: "granted",
-      });
-    }
-
-    // Apply other preferences as needed
+    // Example for a simple class-based feature toggle
     if (prefs.personalization) {
-      // Enable personalization features
       document.documentElement.classList.add("personalization-enabled");
+    } else {
+      document.documentElement.classList.remove("personalization-enabled");
     }
   };
 
-  const handleAcceptAll = async () => {
+  const handleAction = async (
+    consentType: "accepted" | "necessary-only" | "custom",
+    newPreferences: CookiePreferences
+  ) => {
     setIsLoading(true);
 
-    const allAccepted: CookiePreferences = {
-      necessary: true,
-      analytics: true,
-      marketing: true,
-      personalization: true,
-    };
+    setPreferences(newPreferences);
+    applyPreferences(newPreferences);
 
-    setPreferences(allAccepted);
-    applyPreferences(allAccepted);
-
-    localStorage.setItem("avenue-fashion-cookie-consent", "accepted");
+    localStorage.setItem("avenue-fashion-cookie-consent", consentType);
     localStorage.setItem(
       "avenue-fashion-cookie-preferences",
-      JSON.stringify(allAccepted)
+      JSON.stringify(newPreferences)
     );
 
-    // Small delay for better UX
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    setIsLoading(false);
-    setShowBanner(false);
-  };
-
-  const handleAcceptNecessary = async () => {
-    setIsLoading(true);
-
-    const necessaryOnly: CookiePreferences = {
-      necessary: true,
-      analytics: false,
-      marketing: false,
-      personalization: false,
-    };
-
-    setPreferences(necessaryOnly);
-    applyPreferences(necessaryOnly);
-
-    localStorage.setItem("avenue-fashion-cookie-consent", "necessary-only");
-    localStorage.setItem(
-      "avenue-fashion-cookie-preferences",
-      JSON.stringify(necessaryOnly)
-    );
-
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    setIsLoading(false);
-    setShowBanner(false);
-  };
-
-  const handleSavePreferences = async () => {
-    setIsLoading(true);
-
-    applyPreferences(preferences);
-
-    localStorage.setItem("avenue-fashion-cookie-consent", "custom");
-    localStorage.setItem(
-      "avenue-fashion-cookie-preferences",
-      JSON.stringify(preferences)
-    );
-
+    // Simulate network delay for better UX
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     setIsLoading(false);
@@ -148,239 +164,165 @@ export function CookieConsent() {
     setShowBanner(false);
   };
 
+  const handleAcceptAll = () =>
+    handleAction("accepted", {
+      necessary: true,
+      analytics: true,
+      marketing: true,
+      personalization: true,
+    });
+
+  const handleAcceptNecessary = () =>
+    handleAction("necessary-only", defaultPreferences);
+
+  const handleSavePreferences = () => handleAction("custom", preferences);
+
   const handlePreferenceChange = (
-    key: keyof CookiePreferences,
+    key: keyof Omit<CookiePreferences, "necessary">,
     value: boolean
   ) => {
-    if (key === "necessary") return; // Can't disable necessary cookies
-
-    setPreferences((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setPreferences((prev) => ({ ...prev, [key]: value }));
   };
+
+  const preferenceOptions: Omit<PreferenceItemProps, "checked">[] = [
+    {
+      icon: Shield,
+      title: "Necessary Cookies",
+      description:
+        "Essential for the website to function. They enable security, network management, and accessibility.",
+      disabled: true,
+    },
+    {
+      icon: BarChart3,
+      title: "Analytics Cookies",
+      description:
+        "Help us understand how you interact with our website by collecting and reporting information anonymously.",
+      onCheckedChange: (checked) =>
+        handlePreferenceChange("analytics", checked),
+    },
+    {
+      icon: Target,
+      title: "Marketing Cookies",
+      description:
+        "Used to track visitors across websites to display relevant and engaging advertisements.",
+      onCheckedChange: (checked) =>
+        handlePreferenceChange("marketing", checked),
+    },
+    {
+      icon: Cookie,
+      title: "Personalization Cookies",
+      description:
+        "Enable us to remember your preferences and provide personalized content to enhance your experience.",
+      onCheckedChange: (checked) =>
+        handlePreferenceChange("personalization", checked),
+    },
+  ];
 
   if (!showBanner) return null;
 
-  if (showPreferences) {
-    return (
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-2">
-                <Settings className="w-6 h-6 text-blue-600" />
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Cookie Preferences
-                </h2>
-              </div>
-              <button
-                onClick={() => setShowPreferences(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                We use cookies to enhance your shopping experience, provide
-                personalized content, and analyze our traffic. You can choose
-                which types of cookies to accept below.
-              </p>
-
-              {/* Necessary Cookies */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-5 h-5 text-green-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-white">
-                      Necessary Cookies
-                    </h3>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="text-sm text-green-600 font-medium mr-2">
-                      Always Active
-                    </span>
-                    <div className="w-12 h-6 bg-green-500 rounded-full flex items-center justify-end px-1">
-                      <div className="w-4 h-4 bg-white rounded-full"></div>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Essential for the website to function properly. These cookies
-                  enable basic features like security, network management, and
-                  accessibility.
-                </p>
-              </div>
-
-              {/* Analytics Cookies */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <BarChart3 className="w-5 h-5 text-blue-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-white">
-                      Analytics Cookies
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handlePreferenceChange(
-                        "analytics",
-                        !preferences.analytics
-                      )
-                    }
-                    className={`w-12 h-6 rounded-full flex items-center transition-colors ${
-                      preferences.analytics
-                        ? "bg-blue-500 justify-end"
-                        : "bg-gray-300 dark:bg-gray-600 justify-start"
-                    }`}
-                  >
-                    <div className="w-4 h-4 bg-white rounded-full mx-1"></div>
-                  </button>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Help us understand how visitors interact with our website by
-                  collecting and reporting information anonymously.
-                </p>
-              </div>
-
-              {/* Marketing Cookies */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Target className="w-5 h-5 text-purple-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-white">
-                      Marketing Cookies
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handlePreferenceChange(
-                        "marketing",
-                        !preferences.marketing
-                      )
-                    }
-                    className={`w-12 h-6 rounded-full flex items-center transition-colors ${
-                      preferences.marketing
-                        ? "bg-purple-500 justify-end"
-                        : "bg-gray-300 dark:bg-gray-600 justify-start"
-                    }`}
-                  >
-                    <div className="w-4 h-4 bg-white rounded-full mx-1"></div>
-                  </button>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Used to track visitors across websites to display relevant and
-                  engaging advertisements.
-                </p>
-              </div>
-
-              {/* Personalization Cookies */}
-              <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Cookie className="w-5 h-5 text-orange-600" />
-                    <h3 className="font-medium text-gray-900 dark:text-white">
-                      Personalization Cookies
-                    </h3>
-                  </div>
-                  <button
-                    onClick={() =>
-                      handlePreferenceChange(
-                        "personalization",
-                        !preferences.personalization
-                      )
-                    }
-                    className={`w-12 h-6 rounded-full flex items-center transition-colors ${
-                      preferences.personalization
-                        ? "bg-orange-500 justify-end"
-                        : "bg-gray-300 dark:bg-gray-600 justify-start"
-                    }`}
-                  >
-                    <div className="w-4 h-4 bg-white rounded-full mx-1"></div>
-                  </button>
-                </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Enable personalized content and remember your preferences to
-                  enhance your shopping experience.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-8">
-              <button
-                onClick={handleSavePreferences}
-                disabled={isLoading}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-colors"
-              >
-                {isLoading ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Check className="w-4 h-4" />
-                )}
-                Save Preferences
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-lg z-50">
-      <div className="max-w-7xl mx-auto p-4">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="flex items-start gap-3 flex-1">
-            <Cookie className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
+    <Dialog open={showPreferences} onOpenChange={setShowPreferences}>
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-md">
+        <div className="container mx-auto flex flex-col items-center gap-4 p-4 md:flex-row">
+          <div className="flex flex-1 items-start gap-4">
+            <Cookie className="h-8 w-8 shrink-0 text-primary" />
             <div>
-              <h3 className="font-medium text-gray-900 dark:text-white mb-1">
-                We value your privacy
+              <h3 className="font-semibold text-foreground">
+                We Value Your Privacy
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                We use cookies to enhance your browsing experience, serve
-                personalized content, and analyze our traffic. By clicking
-                "Accept All", you consent to our use of cookies.{" "}
+              <p className="text-sm text-muted-foreground">
+                We use cookies to enhance your experience, serve personalized
+                content, and analyze traffic. By clicking "Accept All", you
+                consent to our use of cookies.{" "}
                 <Link
                   href="/privacy-policy"
-                  className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
                 >
-                  Learn more
+                  Learn more.
                 </Link>
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 sm:flex-nowrap">
-            <button
-              onClick={() => setShowPreferences(true)}
-              className="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 text-sm font-medium transition-colors"
-            >
-              Customize
-            </button>
-            <button
+          <div className="flex w-full shrink-0 flex-wrap items-center justify-center gap-2 md:w-auto md:flex-nowrap">
+            <DialogTrigger asChild>
+              <Button variant="ghost" className="w-full sm:w-auto">
+                Customize
+              </Button>
+            </DialogTrigger>
+            <Button
+              variant="outline"
               onClick={handleAcceptNecessary}
               disabled={isLoading}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+              className="w-full sm:w-auto"
             >
               Necessary Only
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleAcceptAll}
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+              className="w-full sm:w-auto"
             >
               {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
-                <Check className="w-4 h-4" />
+                <Check className="mr-2 h-4 w-4" />
               )}
               Accept All
-            </button>
+            </Button>
           </div>
         </div>
       </div>
-    </div>
+
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Settings className="h-5 w-5" />
+            Cookie Preferences
+          </DialogTitle>
+          <DialogDescription>
+            Manage your cookie settings below. You can change your preferences
+            at any time. For more details, please read our{" "}
+            <Link
+              href="/privacy-policy"
+              className="font-medium text-primary underline-offset-4 hover:underline"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </DialogDescription>
+        </DialogHeader>
+        <Separator />
+        <div className="space-y-4 py-4">
+          {preferenceOptions.map((opt) => (
+            <PreferenceItem
+              key={opt.title}
+              {...opt}
+              checked={
+                preferences[
+                  opt.title
+                    .split(" ")[0]
+                    .toLowerCase() as keyof CookiePreferences
+                ]
+              }
+            />
+          ))}
+        </div>
+        <DialogFooter>
+          <Button
+            onClick={handleSavePreferences}
+            disabled={isLoading}
+            className="w-full"
+          >
+            {isLoading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Check className="mr-2 h-4 w-4" />
+            )}
+            Save Preferences
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
