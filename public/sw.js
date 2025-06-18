@@ -5,16 +5,43 @@
 
 // Listen for the 'push' event.
 self.addEventListener("push", (event) => {
-  // Retrieve the notification data from the push message.
-  const data = event.data.json();
-  const title = data.title || "Avenue Fashion";
+  let data = {};
+  let title = "Avenue Fashion";
+  let body = "";
+  let url = "/";
+
+  // Check if there's any data in the push message
+  if (event.data) {
+    try {
+      // Try to parse as JSON first
+      data = event.data.json();
+      title = data.title || "Avenue Fashion";
+      body = data.body || "";
+      url = data.url || "/";
+    } catch (error) {
+      // If JSON parsing fails, treat it as plain text
+      console.log("Push data is not JSON, treating as plain text");
+      body = event.data.text();
+      // You can also try to extract title from the text if needed
+      // For example, if the format is "Title: Body"
+      if (body.includes(":")) {
+        const parts = body.split(":", 2);
+        title = parts[0].trim();
+        body = parts[1].trim();
+      }
+    }
+  }
+
   const options = {
-    body: data.body,
+    body: body,
     icon: "/web-app-manifest-192x192.png",
-    badge: "web-app-manifest-192x192.png",
+    badge: "/web-app-manifest-192x192.png", // Added missing leading slash
     data: {
-      url: data.url || "/",
+      url: url,
     },
+    // Additional options for better UX
+    requireInteraction: false,
+    silent: false,
   };
 
   // Keep the service worker alive until the notification is shown.
@@ -53,4 +80,9 @@ self.addEventListener("notificationclick", (event) => {
 // A simple install event to ensure the service worker takes control immediately.
 self.addEventListener("install", (event) => {
   self.skipWaiting();
+});
+
+// Activate event to ensure the service worker takes control of all pages
+self.addEventListener("activate", (event) => {
+  event.waitUntil(clients.claim());
 });
