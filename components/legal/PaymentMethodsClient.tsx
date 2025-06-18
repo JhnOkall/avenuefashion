@@ -32,7 +32,6 @@ const FeatureCard = ({
 /**
  * Renders the full Payment Methods page content for Avenue Fashion.
  */
-// DISCLAIMER: Ensure this policy accurately reflects the payment options enabled in your Paystack dashboard.
 export function PaymentMethodsClient() {
   return (
     <Card className="border-none shadow-none">

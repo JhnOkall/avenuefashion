@@ -2,6 +2,7 @@
 
 import React from "react";
 import { AlertTriangle, RefreshCw, Home } from "lucide-react";
+import Link from "next/link";
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -96,12 +97,12 @@ export class ErrorBoundary extends React.Component<
             <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 If this problem persists, please contact our support team at{" "}
-                <a
+                <Link
                   href="mailto:support@avenuefashion.co.ke"
                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
                 >
                   support@avenuefashion.co.ke
-                </a>
+                </Link>
               </p>
             </div>
           </div>

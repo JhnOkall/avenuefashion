@@ -105,12 +105,12 @@ const faqData: FaqItem[] = [
     answer: (
       <p>
         To initiate a return, please email our support team at{" "}
-        <a
-          href="mailto:support@avenuefashion.example.com"
+        <Link
+          href="mailto:support@avenuefashion.co.ke"
           className="text-primary hover:underline"
         >
-          support@avenuefashion.example.com
-        </a>{" "}
+          support@avenuefashion.co.ke
+        </Link>{" "}
         with your order number and the reason for the return. Our team will
         guide you through the next steps.
       </p>

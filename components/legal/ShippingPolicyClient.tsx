@@ -27,7 +27,6 @@ const PolicySection = ({
 /**
  * Renders the full Shipping Policy content for Avenue Fashion.
  */
-// DISCLAIMER: This is a template. You should consult with your courier partners and potentially a legal professional to ensure this policy accurately reflects your operational capabilities and legal obligations.
 export function ShippingPolicyClient() {
   return (
     <Card className="border-none shadow-none">
@@ -63,19 +62,9 @@ export function ShippingPolicyClient() {
           <ul className="list-disc space-y-2 pl-6">
             <li>
               <strong>Nairobi & Metropolitan Area:</strong> Deliveries are
-              typically completed within <strong>1-2 business days</strong>. We
+              typically completed within <strong>1-3 business days</strong>. We
               may use our in-house delivery team or a third-party service like
               Uber Connect for express deliveries.
-            </li>
-            <li>
-              <strong>Major Towns & Cities (Outside Nairobi):</strong>{" "}
-              Deliveries to major county headquarters and towns (e.g., Mombasa,
-              Kisumu, Nakuru, Eldoret) are typically completed within{" "}
-              <strong>2-3 business days</strong>.
-            </li>
-            <li>
-              <strong>Other Regions:</strong> For more remote or rural areas,
-              please allow up to <strong>5 business days</strong> for delivery.
             </li>
           </ul>
           <p>
@@ -127,7 +116,7 @@ export function ShippingPolicyClient() {
             view the status and timeline of your delivery.
           </p>
           <p>
-            If you haven’t received your order within 5 business days of
+            If you haven't received your order within 5 business days of
             receiving your shipping confirmation email, please contact us at{" "}
             <Link
               href="mailto:support@avenuefashion.co.ke"

@@ -10,6 +10,7 @@ import {
   BarChart3,
   Target,
 } from "lucide-react";
+import Link from "next/link";
 
 type CookiePreferences = {
   necessary: boolean;
@@ -341,12 +342,12 @@ export function CookieConsent() {
                 We use cookies to enhance your browsing experience, serve
                 personalized content, and analyze our traffic. By clicking
                 "Accept All", you consent to our use of cookies.{" "}
-                <a
+                <Link
                   href="/privacy-policy"
                   className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 underline"
                 >
                   Learn more
-                </a>
+                </Link>
               </p>
             </div>
           </div>
