@@ -47,16 +47,17 @@ export default async function AdminOrdersPage({
   searchParams,
 }: {
   // --- FIX: Updated the type to expect the new filter parameters ---
-  searchParams?: {
+  searchParams?: Promise<{
     deliveryStatus?: string;
     paymentStatus?: string;
     page?: string;
-  };
+  }>;
 }) {
+  const resolvedSearchParams = await searchParams;
   // --- FIX: Read both delivery and payment status from searchParams ---
-  const deliveryStatus = searchParams?.deliveryStatus || "all";
-  const paymentStatus = searchParams?.paymentStatus || "all";
-  const currentPage = Number(searchParams?.page) || 1;
+  const deliveryStatus = resolvedSearchParams?.deliveryStatus || "all";
+  const paymentStatus = resolvedSearchParams?.paymentStatus || "all";
+  const currentPage = Number(resolvedSearchParams?.page) || 1;
 
   /**
    * Fetches the orders data on the server based on the current filters and pagination.
