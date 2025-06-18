@@ -15,40 +15,43 @@ import { Card, CardContent } from "@/components/ui/card";
  * A data structure defining the sections and links for the footer.
  * This approach makes the component cleaner and easier to update.
  */
-// TODO: For a more dynamic site, this data could be fetched from a headless CMS or a configuration API.
 const footerSections = [
   {
     title: "Company",
-    links: ["About", "Premium", "Blog", "Affiliate Program", "Get Coupon"],
+    links: [
+      { name: "About", href: "/about" },
+      { name: "Premium", href: "/coming-soon" },
+      { name: "Blog", href: "/coming-soon" },
+      { name: "Affiliate Program", href: "/coming-soon" },
+      { name: "Get Coupon", href: "/coming-soon" },
+    ],
   },
   {
     title: "Order & Purchases",
     links: [
-      "Order Status",
-      "Track Your Order",
-      "Purchase History",
-      "Returns & Refunds",
-      "Payment Methods",
+      { name: "Order Status", href: "/me/orders" },
+      { name: "Track Your Order", href: "/me/orders" },
+      { name: "Purchase History", href: "/me/orders" },
+      { name: "Returns & Refunds", href: "/returns-policy" },
+      { name: "Payment Methods", href: "/payment-methods" },
     ],
   },
   {
     title: "Support & Services",
     links: [
-      "Contact Support",
-      "FAQs",
-      "Service Centers",
-      "Warranty Information",
-      "Product Manuals",
+      { name: "Contact Support", href: "mailto:support@avenuefashion.co.ke" },
+      { name: "FAQs", href: "/faq" },
+      { name: "Service Centers", href: "/coming-soon" },
+      { name: "Warranty Information", href: "/coming-soon" },
     ],
   },
   {
-    title: "Sell on Avenue Fashion",
+    title: "Legal",
     links: [
-      "Seller Registration",
-      "How to Sell",
-      "Seller Policies",
-      "Seller Resources",
-      "Seller Support",
+      { name: "Privacy Policy", href: "/privacy-policy" },
+      { name: "Returns Policy", href: "/returns-policy" },
+      { name: "Shipping Policy", href: "/shipping-policy" },
+      { name: "Terms of Service", href: "/terms-of-service" },
     ],
   },
 ];
@@ -108,13 +111,12 @@ const Footer = () => {
                   </h3>
                   <ul className="space-y-3 text-sm">
                     {section.links.map((link) => (
-                      <li key={link}>
-                        {/* TODO: Replace '#' with actual paths for each link. */}
+                      <li key={link.name}>
                         <Link
-                          href="#"
+                          href={link.href}
                           className="text-muted-foreground transition-colors hover:text-foreground"
                         >
-                          {link}
+                          {link.name}
                         </Link>
                       </li>
                     ))}
@@ -128,7 +130,7 @@ const Footer = () => {
               <Card className="bg-muted/50 p-6">
                 <CardContent className="p-0">
                   <Link
-                    href="#"
+                    href="/api/auth/signin"
                     className="text-base font-medium text-primary underline-offset-4 hover:underline"
                   >
                     Sign In or Create Account
@@ -161,19 +163,17 @@ const Footer = () => {
                   <div>
                     <p className="mb-3 text-sm font-medium text-foreground">
                       Trade on the go with the{" "}
-                      {/* TODO: Replace '#' with the actual app landing page URL. */}
-                      <Link href="#" className="text-primary hover:underline">
+                      <Link href="/" className="text-primary hover:underline">
                         Avenue Fashion App
                       </Link>
                     </p>
                     <div className="flex flex-col gap-2 sm:flex-row">
-                      {/* TODO: Replace '#' with the actual Google Play Store URL. */}
                       <Button
                         asChild
                         variant="secondary"
                         className="w-full sm:w-auto"
                       >
-                        <Link href="#">
+                        <Link href="https://play.google.com/store/apps/details?id=com.avenuefashion">
                           {/* Google Play SVG is retained for brand accuracy. */}
                           <svg
                             className="mr-2 h-5 w-5"
@@ -187,13 +187,12 @@ const Footer = () => {
                           Google Play
                         </Link>
                       </Button>
-                      {/* TODO: Replace '#' with the actual Apple App Store URL. */}
                       <Button
                         asChild
                         variant="secondary"
                         className="w-full sm:w-auto"
                       >
-                        <Link href="#">
+                        <Link href="https://apps.apple.com/app/avenue-fashion/id123456789">
                           {/* Apple SVG is retained for brand accuracy. */}
                           <svg
                             className="mr-2 h-5 w-5"

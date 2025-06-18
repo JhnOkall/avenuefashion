@@ -163,6 +163,7 @@ export const AdminOrderDetailClient = ({ order }: { order: IOrder }) => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Processing">Processing</SelectItem>
                   <SelectItem value="In transit">In transit</SelectItem>
                   <SelectItem value="Confirmed">Confirmed</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>
