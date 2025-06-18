@@ -12,15 +12,17 @@ interface UpdateOrderPayload {
     paymentStatus?: IOrder['payment']['status'];
 }
 
-export async function PATCH(req: Request, { params }: { params: { orderId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await auth();
   if (session?.user?.role !== 'admin') {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
   }
+
+    const resolvedParams = await params;
     
   try {
     await connectDB();
-    const { orderId } = params;
+    const { orderId } = resolvedParams;
     
     // --- FIX: Apply the strong type to the entire parsed JSON body ---
     const { status, paymentStatus }: UpdateOrderPayload = await req.json();
