@@ -14,13 +14,12 @@ import { Skeleton } from "@/components/ui/skeleton";
  */
 const TableSkeleton = () => (
   <div className="space-y-4">
-    <div className="flex justify-between">
-      {/* Skeleton for the filter dropdown */}
+    <div className="flex items-center gap-4">
+      {/* Skeletons for the filter dropdowns */}
+      <Skeleton className="h-10 w-48" />
       <Skeleton className="h-10 w-48" />
     </div>
-    {/* Skeleton for the main table content */}
     <Skeleton className="h-[600px] w-full" />
-    {/* Skeleton for the pagination controls */}
     <div className="flex items-center justify-end gap-4">
       <Skeleton className="h-10 w-24" />
       <Skeleton className="h-6 w-24" />
@@ -44,38 +43,35 @@ const TableSkeleton = () => (
  * @returns {Promise<JSX.Element>} A promise that resolves to the rendered order management page.
  */
 // TODO: Add a `try...catch` block around the `fetchAdminOrders` call to gracefully handle potential API errors.
-// TODO: This page should be secured to ensure only users with an 'admin' role can access it. This check is likely handled in the parent `layout.tsx`, but verifying is critical.
 export default async function AdminOrdersPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ status?: string; page?: string }>;
+  // --- FIX: Updated the type to expect the new filter parameters ---
+  searchParams?: {
+    deliveryStatus?: string;
+    paymentStatus?: string;
+    page?: string;
+  };
 }) {
-  /**
-   * Await the searchParams Promise to extract the 'status' and 'page' values,
-   * providing sensible defaults for the initial page load.
-   */
-  const resolvedSearchParams = await searchParams;
-  const status = resolvedSearchParams?.status || "all";
-  const currentPage = Number(resolvedSearchParams?.page) || 1;
+  // --- FIX: Read both delivery and payment status from searchParams ---
+  const deliveryStatus = searchParams?.deliveryStatus || "all";
+  const paymentStatus = searchParams?.paymentStatus || "all";
+  const currentPage = Number(searchParams?.page) || 1;
 
   /**
    * Fetches the orders data on the server based on the current filters and pagination.
-   * The `Suspense` boundary will be active during this asynchronous operation.
    */
+  // --- FIX: Call fetchAdminOrders with the correct property names ---
   const ordersData = await fetchAdminOrders({
-    status: status,
+    deliveryStatus: deliveryStatus,
+    paymentStatus: paymentStatus,
     page: currentPage,
-    limit: 10, // Defines the number of items per page.
+    limit: 10,
   });
 
   return (
     <div className="container mx-auto py-10">
       <h1 className="mb-6 text-3xl font-bold">Order Management</h1>
-      {/*
-       * The `Suspense` boundary allows the UI to be streamed to the client.
-       * The `TableSkeleton` fallback is shown immediately, while the server
-       * fetches the data needed by the `OrderDataTable` component.
-       */}
       <Suspense fallback={<TableSkeleton />}>
         <OrderDataTable initialData={ordersData} />
       </Suspense>
