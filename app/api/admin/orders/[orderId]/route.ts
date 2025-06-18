@@ -8,15 +8,17 @@ import { IOrder } from '@/types';
 import { sendNotificationToUser } from '@/lib/notification-service';
 
 
-export async function PATCH(req: Request, { params }: { params: { orderId: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ orderId: string }> }) {
   const session = await auth();
   if (session?.user?.role !== 'admin') {
     return NextResponse.json({ message: 'Forbidden' }, { status: 403 });
-  }
+    }
+    
+    const resolvedParams = await params;
 
   try {
     await connectDB();
-    const { orderId } = params;
+    const { orderId } = resolvedParams;
     const { status }: { status: IOrder['status'] } = await req.json();
 
     if (!status) {
