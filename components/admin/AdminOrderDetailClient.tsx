@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Card,
@@ -35,22 +34,56 @@ import { updateAdminOrder } from "@/lib/data";
 import { getStatusVariant, formatPrice } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 
-export const AdminOrderDetailClient = ({ order }: { order: IOrder }) => {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [currentStatus, setCurrentStatus] = useState(order.status);
+// This helper can also be moved to `lib/utils` for consistency.
+const getPaymentStatusVariant = (status: string) => {
+  switch (status) {
+    case "Completed":
+      return "success";
+    case "Failed":
+      return "destructive";
+    case "Pending":
+    default:
+      return "secondary";
+  }
+};
 
-  const handleStatusUpdate = (newStatus: IOrder["status"]) => {
+export const AdminOrderDetailClient = ({ order }: { order: IOrder }) => {
+  const [isPending, startTransition] = useTransition();
+
+  // --- FIX: Separate state for delivery and payment status ---
+  const [currentDeliveryStatus, setCurrentDeliveryStatus] = useState(
+    order.status
+  );
+  const [currentPaymentStatus, setCurrentPaymentStatus] = useState(
+    order.payment.status
+  );
+
+  // --- FIX: Renamed handler for clarity ---
+  const handleDeliveryStatusUpdate = (newStatus: IOrder["status"]) => {
     startTransition(async () => {
       try {
         await updateAdminOrder(order.orderId, { status: newStatus });
-        setCurrentStatus(newStatus);
-        toast.success("Status Updated", {
+        setCurrentDeliveryStatus(newStatus);
+        toast.success("Delivery Status Updated", {
           description: `Order ${order.orderId} is now ${newStatus}.`,
         });
-        // We only need to refresh if we want other data to update,
-        // but for status, we can update client state instantly.
-        // router.refresh();
+      } catch (error: any) {
+        toast.error("Update Failed", { description: error.message });
+      }
+    });
+  };
+
+  // --- NEW: Added handler for payment status updates ---
+  const handlePaymentStatusUpdate = (
+    newStatus: IOrder["payment"]["status"]
+  ) => {
+    startTransition(async () => {
+      try {
+        await updateAdminOrder(order.orderId, { paymentStatus: newStatus });
+        setCurrentPaymentStatus(newStatus);
+        toast.success("Payment Status Updated", {
+          description: `Order ${order.orderId} payment is now ${newStatus}.`,
+        });
       } catch (error: any) {
         toast.error("Update Failed", { description: error.message });
       }
@@ -72,17 +105,19 @@ export const AdminOrderDetailClient = ({ order }: { order: IOrder }) => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[80px]">Image</TableHead>
+                  <TableHead className="hidden sm:table-cell w-[80px]">
+                    Image
+                  </TableHead>
                   <TableHead>Product</TableHead>
                   <TableHead className="text-right">Price</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
+                  <TableHead className="text-center">Qty</TableHead>
                   <TableHead className="text-right">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {order.items.map((item, index) => (
                   <TableRow key={index}>
-                    <TableCell>
+                    <TableCell className="hidden sm:table-cell">
                       <Image
                         src={item.imageUrl}
                         alt={item.name}
@@ -95,7 +130,7 @@ export const AdminOrderDetailClient = ({ order }: { order: IOrder }) => {
                     <TableCell className="text-right">
                       {formatPrice(item.price)}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-center">
                       {item.quantity}
                     </TableCell>
                     <TableCell className="text-right">
@@ -139,34 +174,66 @@ export const AdminOrderDetailClient = ({ order }: { order: IOrder }) => {
           <CardHeader>
             <CardTitle>{order.orderId}</CardTitle>
             <CardDescription>
-              Order placed on {new Date(order.createdAt).toLocaleDateString()}
+              Placed on {new Date(order.createdAt).toLocaleDateString()}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Status</span>
-              <Badge variant={getStatusVariant(currentStatus) as any}>
-                {currentStatus}
+              <span className="text-muted-foreground">Delivery Status</span>
+              <Badge variant={getStatusVariant(currentDeliveryStatus) as any}>
+                {currentDeliveryStatus}
+              </Badge>
+            </div>
+            {/* --- NEW: Display for payment status --- */}
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">Payment Status</span>
+              <Badge
+                variant={getPaymentStatusVariant(currentPaymentStatus) as any}
+              >
+                {currentPaymentStatus}
               </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Payment</span>
+              <span className="text-muted-foreground">Payment Method</span>
               <span>{order.payment.method}</span>
             </div>
           </CardContent>
-          <CardFooter>
+          {/* --- FIX: Updated CardFooter to hold both dropdowns --- */}
+          <CardFooter className="flex-col items-start gap-4">
             <div className="w-full space-y-2">
-              <Label>Update Status</Label>
-              <Select onValueChange={handleStatusUpdate} disabled={isPending}>
+              <Label>Update Delivery Status</Label>
+              <Select
+                onValueChange={handleDeliveryStatusUpdate}
+                value={currentDeliveryStatus}
+                disabled={isPending}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Change status..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Confirmed">Confirmed</SelectItem>
                   <SelectItem value="Processing">Processing</SelectItem>
                   <SelectItem value="In transit">In transit</SelectItem>
-                  <SelectItem value="Confirmed">Confirmed</SelectItem>
+                  <SelectItem value="Delivered">Delivered</SelectItem>
                   <SelectItem value="Cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {/* --- NEW: Dropdown for updating payment status --- */}
+            <div className="w-full space-y-2">
+              <Label>Update Payment Status</Label>
+              <Select
+                onValueChange={handlePaymentStatusUpdate}
+                value={currentPaymentStatus}
+                disabled={isPending}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Change payment status..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
             </div>

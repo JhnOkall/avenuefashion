@@ -70,13 +70,13 @@ const OrderSchema = new Schema<IOrder>({
   },
   payment: {
     method: { type: String, required: true },
-    status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
+    status: { type: String, enum: ['Pending', 'Completed', 'Failed'], default: 'Pending' },
     transactionId: { type: String, index: true },
   },
   status: {
     type: String,
-    enum: ['Processing', 'Pending', 'In transit', 'Confirmed', 'Delivered', 'Cancelled'],
-    default: 'Pending',
+    enum: ['Confirmed', 'Processing', 'In transit', 'Delivered', 'Cancelled'],
+    default: 'Confirmed',
     index: true,
   },
   timeline: [OrderTimelineEventSchema],

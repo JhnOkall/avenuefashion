@@ -84,26 +84,31 @@ export async function POST(req: Request) {
       }
     }
     
-    const orderInstance = new Order({ // Renamed to avoid shadowing
+    // --- FIX START: Update Order creation to match new status logic ---
+    const orderInstance = new Order({
       user: session.user.id,
       items: cart.items, 
       pricing: { subtotal, shipping, tax, discount, total },
       shippingDetails: {
         name: address.recipientName,
-        email: session.user.email,
+        email: session.user.email || 'N/A', // Fallback for email
         phone: address.phone,
         address: `${address.streetAddress}, ${(address.city as ICity).name}`,
       },
-      payment: { method: paymentMethod, status: 'pending' },
-      status: 'Pending',
+      payment: { 
+        method: paymentMethod, 
+        status: 'Pending' // Capitalized to match schema
+      },
+      status: 'Confirmed', // Default delivery status is now 'Confirmed'
       timeline: [{
-        title: 'Order Placed',
-        description: 'Your order has been received and is waiting for processing.',
+        title: 'Order Confirmed', // Updated timeline event title
+        description: 'Your order has been confirmed and is waiting for processing.', // Updated description
         status: 'current',
         timestamp: new Date(),
       }],
       appliedVoucher: validVoucher ? validVoucher._id : undefined,
     });
+    // --- FIX END ---
 
     // Assign the saved order to the outer scope variable
     newOrder = await orderInstance.save({ session: dbSession });
@@ -116,7 +121,6 @@ export async function POST(req: Request) {
     await dbSession.commitTransaction();
 
    // --- 2. TRIGGER NOTIFICATIONS (User and Admin) ---
-    // This now sends notifications to both the user and all admins in parallel.
     if (newOrder) {
       // Promise for sending notification to the customer
       const userNotificationPromise = sendNotificationToUser(session.user.id, {
@@ -129,7 +133,7 @@ export async function POST(req: Request) {
       const adminNotificationPromise = sendNotificationToAdmins({
         title: 'New Order Received! 📦',
         body: `Order #${newOrder.orderId} from ${newOrder.shippingDetails.name} for KES ${newOrder.pricing.total.toFixed(2)}.`,
-        url: `/admin/orders/${newOrder.orderId}`, // Direct link to admin order detail page
+        url: `/orders/${newOrder.orderId}`, // Direct link to admin order detail page
       });
 
       // Execute both promises concurrently and log any errors without failing the request.

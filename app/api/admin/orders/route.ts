@@ -7,7 +7,9 @@ import Order from '@/models/Order';
  * A Next.js API route handler for fetching a paginated and filtered list of all orders.
  * This is a protected route, accessible only by users with the 'admin' role.
  *
- * @param {Request} req - The incoming GET request object, which may contain URL search parameters.
+ * It supports filtering by delivery status and/or payment status.
+ *
+ * @param {Request} req - The incoming GET request object, which may contain URL search parameters like `page`, `limit`, `deliveryStatus`, and `paymentStatus`.
  * @returns {Promise<NextResponse>} A JSON response containing the list of orders and pagination metadata, or an error message.
  */
 export async function GET(req: Request) {
@@ -27,12 +29,23 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
-    const status = searchParams.get('status');
+    
+    // --- FIX: Read both delivery and payment status from URL ---
+    const deliveryStatus = searchParams.get('deliveryStatus');
+    const paymentStatus = searchParams.get('paymentStatus');
     
     // Builds the filter query for the database lookup.
     const filter: any = {};
-    if (status && status !== 'all') {
-      filter.status = status;
+    
+    // Add delivery status to filter if provided and not 'all'
+    if (deliveryStatus && deliveryStatus !== 'all') {
+      filter.status = deliveryStatus;
+    }
+    
+    // Add payment status to filter if provided and not 'all'
+    // Uses dot notation to query the nested field.
+    if (paymentStatus && paymentStatus !== 'all') {
+      filter['payment.status'] = paymentStatus;
     }
 
     // Calculates the number of documents to skip for pagination.

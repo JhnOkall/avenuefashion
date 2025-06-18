@@ -570,13 +570,13 @@ export interface IOrder extends Document {
    */
   payment: {
     method: string;
-    status: 'pending' | 'completed' | 'failed';
+    status: 'Pending' | 'Completed' | 'Failed';
     transactionId?: string;
   };
   /**
-   * The overall status of the order.
+   * The overall delivery status of the order.
    */
-  status: 'Processing' | 'Pending' | 'In transit' | 'Confirmed' |'Delivered' | 'Cancelled';
+  status: 'Confirmed' | 'Processing' | 'In transit' | 'Delivered' | 'Cancelled';
   /**
    * A chronological log of events related to the order's fulfillment.
    */

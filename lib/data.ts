@@ -1013,48 +1013,75 @@ export const createBrand = async (brandData: Partial<IBrand>): Promise<IBrand> =
 
 /**
  * Fetches orders for the admin panel with pagination and status filtering.
- * @param params - Options for pagination and filtering.
+ * @param params - Options for pagination and filtering by delivery and/or payment status.
  * @returns A promise that resolves to a paginated list of orders.
  * @throws Will throw an error if the request fails.
  */
-export const fetchAdminOrders = async (params: { page?: number, limit?: number, status?: string }): Promise<AdminPaginatedApiResponse<IOrder>> => {
+export const fetchAdminOrders = async (params: {
+    page?: number;
+    limit?: number;
+    deliveryStatus?: string;
+    paymentStatus?: string;
+}): Promise<AdminPaginatedApiResponse<IOrder>> => {
     try {
         const queryParams = new URLSearchParams();
         if (params.page) queryParams.append('page', params.page.toString());
         if (params.limit) queryParams.append('limit', params.limit.toString());
-        if (params.status && params.status !== 'all') queryParams.append('status', params.status);
+        
+        // --- FIX: Add both delivery and payment status to query parameters ---
+        if (params.deliveryStatus && params.deliveryStatus !== 'all') {
+            queryParams.append('deliveryStatus', params.deliveryStatus);
+        }
+        if (params.paymentStatus && params.paymentStatus !== 'all') {
+            queryParams.append('paymentStatus', params.paymentStatus);
+        }
         
         const authOptions = await getAuthFetchOptions({ cache: 'no-store' });
         const response = await fetch(`${API_BASE_URL}/admin/orders?${queryParams.toString()}`, authOptions);
         if (!response.ok) throw new Error('Failed to fetch admin orders.');
         return await response.json();
-    } catch (error) { console.error(error); throw error; }
+    } catch (error) { 
+        console.error("Error in fetchAdminOrders:", error);
+        throw error; 
+    }
 }
 
 /**
- * Updates an order's status or adds a timeline event from the admin panel.
+ * Updates an order's status from the admin panel.
+ * Can update delivery status, payment status, or add a timeline event.
  * @param orderId - The user-facing ID of the order (e.g., "ORD-12345").
- * @param payload - The data to update, such as `status` or a new `timelineEvent`.
+ * @param payload - The data to update, containing `status` and/or `paymentStatus`.
  * @returns A promise that resolves to the updated order object.
  * @throws Will throw an error if the request fails.
  */
-export const updateAdminOrder = async (orderId: string, payload: { status?: IOrder['status'], timelineEvent?: any }): Promise<IOrder> => {
-    try {
-        const authOptions = await getAuthFetchOptions({
-            method: 'PATCH',
-            body: JSON.stringify(payload)
-        });
-        const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}`, authOptions);
-        const result = await response.json();
-        if (!response.ok) {
-            throw new Error(result.message || 'Failed to update order.');
-        }
-        return result.data;
-    } catch (error) {
-        console.error(error);
-        throw error;
+export const updateAdminOrder = async (
+    orderId: string,
+    // --- FIX: Expanded payload to include paymentStatus ---
+    payload: {
+      status?: IOrder["status"];
+      paymentStatus?: IOrder["payment"]["status"];
+      timelineEvent?: any;
     }
-}
+  ): Promise<IOrder> => {
+    try {
+      const authOptions = await getAuthFetchOptions({
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      const response = await fetch(
+        `${API_BASE_URL}/admin/orders/${orderId}`,
+        authOptions
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to update order.");
+      }
+      return result.data;
+    } catch (error) {
+      console.error(`Error updating order ${orderId}:`, error);
+      throw error;
+    }
+  };
 
 /**
  * Fetches users for the admin panel with pagination and search.

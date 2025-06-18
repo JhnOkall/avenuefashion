@@ -5,7 +5,7 @@ import {
   Truck,
   Check,
   Package,
-  Warehouse, // New Icon
+  Warehouse,
   LucideIcon,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,11 +22,10 @@ interface OrderTimelineProps {
   timeline: IOrderTimelineEvent[];
 }
 
-// Map the keys from our master template to icons. This is more robust.
+// --- FIX: Updated keys to match the new ORDER_STAGES definition ---
 const iconMap: Record<string, LucideIcon> = {
-  placed: Check,
+  confirmed: Check, // Changed from 'placed'
   processing: Warehouse,
-  shipped: Package,
   "in-transit": Truck,
   delivered: Home,
 };
@@ -37,7 +36,7 @@ const iconMap: Record<string, LucideIcon> = {
  */
 export const OrderTimeline = ({ timeline }: OrderTimelineProps) => {
   // Create a map of actual events from the database for quick lookup.
-  // We use the event title as the key, assuming it's unique per stage.
+  // We use the event title as the key, as it's the common link to the master template.
   const actualEventsMap = new Map<string, IOrderTimelineEvent>();
   timeline.forEach((event) => {
     actualEventsMap.set(event.title, event);

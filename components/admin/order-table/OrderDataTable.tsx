@@ -26,95 +26,104 @@ import {
 import { toast } from "sonner";
 import { IOrder } from "@/types";
 import { columns } from "./columns";
+// --- Assuming updateAdminOrder is updated to handle both statuses ---
 import { AdminOrdersApiResponse, updateAdminOrder } from "@/lib/data";
 
 /**
  * Defines the props required by the OrderDataTable component.
  */
 interface DataTableProps {
-  /**
-   * The initial set of order data and pagination metadata, pre-fetched on the server.
-   */
   initialData: AdminOrdersApiResponse;
 }
 
 /**
  * A client component that renders a data table for managing customer orders.
- * It supports filtering by status and server-side pagination. The component's
- * state (filter, page number) is managed via URL search parameters, making the
- * view refresh-friendly and shareable.
- *
- * @param {DataTableProps} props - The initial data for the table.
+ * It supports filtering by delivery and payment status, and server-side pagination.
  */
 export function OrderDataTable({ initialData }: DataTableProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  /**
-   * `useTransition` provides a pending state for non-blocking UI updates during
-   * server actions, such as when an order's status is being updated.
-   */
   const [isPending, startTransition] = useTransition();
 
   /**
-   * Handles updating an order's status via an API call and provides user feedback.
-   * @param {string} orderId - The user-facing ID of the order to update (e.g., "ORD-12345").
-   * @param {IOrder["status"]} status - The new status to assign to the order.
+   * Handles updating an order's DELIVERY status.
    */
-  const handleUpdateStatus = (orderId: string, status: IOrder["status"]) => {
+  const handleUpdateDeliveryStatus = (
+    orderId: string,
+    status: IOrder["status"]
+  ) => {
     startTransition(async () => {
       try {
+        // --- FIX: Pass a payload specific to delivery status ---
         await updateAdminOrder(orderId, { status });
         toast.success("Success", {
-          description: `Order ${orderId} status updated to ${status}.`,
+          description: `Order ${orderId} delivery status updated to ${status}.`,
         });
-        // Refresh server-side data to reflect the change in the UI.
         router.refresh();
       } catch (error: any) {
-        toast.error("Update Failed", {
-          description: error.message,
-        });
+        toast.error("Update Failed", { description: error.message });
       }
     });
   };
 
   /**
-   * Initializes the column definitions for the table, passing down the necessary
-   * action handlers for updating the order status.
+   * --- NEW: Handles updating an order's PAYMENT status. ---
    */
-  const tableColumns = columns(handleUpdateStatus);
+  const handleUpdatePaymentStatus = (
+    orderId: string,
+    status: IOrder["payment"]["status"]
+  ) => {
+    startTransition(async () => {
+      try {
+        // --- FIX: Pass a payload specific to payment status ---
+        await updateAdminOrder(orderId, { paymentStatus: status });
+        toast.success("Success", {
+          description: `Order ${orderId} payment status updated to ${status}.`,
+        });
+        router.refresh();
+      } catch (error: any) {
+        toast.error("Update Failed", { description: error.message });
+      }
+    });
+  };
 
   /**
-   * The core table instance from `@tanstack/react-table`, configured with
-   * the order data, column definitions, and manual pagination settings.
+   * --- FIX: Pass both handler functions to the columns factory ---
    */
+  const tableColumns = columns(
+    handleUpdateDeliveryStatus,
+    handleUpdatePaymentStatus
+  );
+
   const table = useReactTable({
     data: initialData.data,
     columns: tableColumns,
     getCoreRowModel: getCoreRowModel(),
-    // Pagination is handled manually via URL state, not by the table instance.
     manualPagination: true,
     pageCount: initialData.totalPages,
   });
 
   /**
-   * Handles changes in the status filter by updating the 'status' URL search parameter.
-   * This triggers a navigation event that re-fetches server data for the new view.
-   * @param {string} status - The new status value to filter by.
+   * --- NEW: Handles changes for the delivery status filter ---
    */
-  const handleStatusFilterChange = (status: string) => {
+  const handleDeliveryFilterChange = (status: string) => {
     const params = new URLSearchParams(searchParams);
-    params.set("status", status);
-    // When changing a filter, always reset the view to the first page.
+    params.set("deliveryStatus", status);
     params.delete("page");
     router.replace(`${pathname}?${params.toString()}`);
   };
 
   /**
-   * Navigates to a specific page by updating the 'page' URL search parameter.
-   * @param {number} pageIndex - The 0-based index of the page to navigate to.
+   * --- NEW: Handles changes for the payment status filter ---
    */
+  const handlePaymentFilterChange = (status: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set("paymentStatus", status);
+    params.delete("page");
+    router.replace(`${pathname}?${params.toString()}`);
+  };
+
   const handlePagination = (pageIndex: number) => {
     const params = new URLSearchParams(searchParams);
     params.set("page", (pageIndex + 1).toString());
@@ -123,21 +132,38 @@ export function OrderDataTable({ initialData }: DataTableProps) {
 
   return (
     <div>
-      <div className="flex items-center py-4">
-        {/* TODO: Add a search input to filter orders by ID or customer name. */}
+      <div className="flex items-center gap-4 py-4">
+        {/* --- FIX: Updated the Delivery Status filter --- */}
         <Select
-          defaultValue={searchParams.get("status") || "all"}
-          onValueChange={handleStatusFilterChange}
+          defaultValue={searchParams.get("deliveryStatus") || "all"}
+          onValueChange={handleDeliveryFilterChange}
         >
           <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Filter by status..." />
+            <SelectValue placeholder="Filter by delivery..." />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="In transit">In transit</SelectItem>
+            <SelectItem value="all">All Delivery Statuses</SelectItem>
             <SelectItem value="Confirmed">Confirmed</SelectItem>
+            <SelectItem value="Processing">Processing</SelectItem>
+            <SelectItem value="In transit">In transit</SelectItem>
+            <SelectItem value="Delivered">Delivered</SelectItem>
             <SelectItem value="Cancelled">Cancelled</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* --- NEW: Added the Payment Status filter --- */}
+        <Select
+          defaultValue={searchParams.get("paymentStatus") || "all"}
+          onValueChange={handlePaymentFilterChange}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by payment..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Payment Statuses</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="Completed">Completed</SelectItem>
+            <SelectItem value="Failed">Failed</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -148,7 +174,6 @@ export function OrderDataTable({ initialData }: DataTableProps) {
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <TableHead key={header.id}>
-                    {/* Renders the header cell content (e.g., 'Order ID', 'Status'). */}
                     {flexRender(
                       header.column.columnDef.header,
                       header.getContext()
@@ -158,14 +183,12 @@ export function OrderDataTable({ initialData }: DataTableProps) {
               </TableRow>
             ))}
           </TableHeader>
-          {/* Apply a visual pending state to the table body during server actions. */}
           <TableBody style={{ opacity: isPending ? 0.6 : 1 }}>
             {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {/* Renders the body cell content for each row. */}
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -175,7 +198,6 @@ export function OrderDataTable({ initialData }: DataTableProps) {
                 </TableRow>
               ))
             ) : (
-              // Displayed when no orders are found for the current query/page.
               <TableRow>
                 <TableCell
                   colSpan={tableColumns.length}
@@ -188,8 +210,6 @@ export function OrderDataTable({ initialData }: DataTableProps) {
           </TableBody>
         </Table>
       </div>
-      {/* Pagination Controls */}
-      {/* TODO: Enhance this pagination with page numbers and an ellipsis for better navigation, especially for a large number of pages. */}
       <div className="flex items-center justify-end space-x-2 py-4">
         <Button
           variant="outline"

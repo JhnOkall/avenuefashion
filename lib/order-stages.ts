@@ -5,9 +5,9 @@ import { IOrder, IOrderTimelineEvent } from "@/types";
  */
 export const ORDER_STAGES: (Omit<IOrderTimelineEvent, 'timestamp'> & { key: string })[] = [
   {
-    key: 'pending',
-    title: 'Order Placed',
-    description: 'Your order has been received and is waiting for processing.',
+    key: 'confirmed',
+    title: 'Order Confirmed',
+    description: 'Your order has been confirmed and is waiting for processing.',
     status: 'upcoming', 
   },
   {
@@ -23,7 +23,7 @@ export const ORDER_STAGES: (Omit<IOrderTimelineEvent, 'timestamp'> & { key: stri
     status: 'upcoming',
   },
   {
-    key: 'delivered', // Let's use 'delivered' for the final successful state
+    key: 'delivered',
     title: 'Delivered',
     description: 'Your order has been successfully delivered. Thank you!',
     status: 'upcoming',
@@ -33,9 +33,10 @@ export const ORDER_STAGES: (Omit<IOrderTimelineEvent, 'timestamp'> & { key: stri
 /**
  * Maps a human-readable order status to its corresponding timeline key.
  * This is crucial for the admin panel to advance the timeline correctly.
+ * Note: 'Cancelled' is a terminal state and does not map to a standard timeline stage.
  */
 export const statusToTimelineKey: { [key in IOrder['status']]?: string } = {
-  'Pending': 'pending',
+  'Confirmed': 'confirmed',
   'Processing': 'processing',
   'In transit': 'in-transit',
   'Delivered': 'delivered',

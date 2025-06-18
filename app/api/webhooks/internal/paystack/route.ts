@@ -53,34 +53,35 @@ export async function POST(req: Request) {
           return NextResponse.json({ status: 'error', message: 'Order not found' }, { status: 404 });
         }
         
-        if (order.payment.status === 'completed') {
+        // --- FIX: Check for capitalized 'Completed' status for idempotency ---
+        if (order.payment.status === 'Completed') {
             console.log(`Payment for order ${orderId} has already been processed. Acknowledging.`);
             return NextResponse.json({ status: 'ok' });
         }
 
-        // Step 3: Update the order document
-        order.payment.status = 'completed';
+        // --- FIX START: Update order document with new statuses and timeline ---
+        order.payment.status = 'Completed'; // Capitalized
         order.payment.transactionId = event.data.reference;
-        order.status = 'Processing';
+        order.status = 'Processing'; // Advance delivery status
 
-        // Update the timeline
-        const placedEvent = order.timeline.find(e => e.title === 'Order Placed');
-        if (placedEvent) {
-            placedEvent.status = 'completed';
+        // Update the timeline: Find the 'Confirmed' event and mark it as completed
+        const confirmedEvent = order.timeline.find(e => e.title === 'Order Confirmed');
+        if (confirmedEvent) {
+            confirmedEvent.status = 'completed';
         }
         
+        // Add the new 'Processing' stage to the timeline
         order.timeline.push({
             title: 'Processing',
             description: 'We are preparing your items for shipment at the warehouse.',
             status: 'current',
             timestamp: new Date(),
         });
+        // --- FIX END ---
         
         await order.save();
 
         // --- 4. TRIGGER NOTIFICATION ---
-        // This is the ideal place. The order status is updated in the DB,
-        // so we can now confidently notify the user.
         try {
             await sendNotificationToUser(order.user.toString(), {
                 title: 'Payment Received! 💳',
@@ -88,14 +89,12 @@ export async function POST(req: Request) {
                 url: `/me/orders/${order.orderId}`,
             });
         } catch (notificationError) {
-            // Log the error but don't fail the webhook processing.
-            // The payment update is more critical than the notification.
             console.error("Failed to send payment confirmation notification:", notificationError);
         }
         // --- END NOTIFICATION TRIGGER ---
 
         // Step 5: Clear the user's cart AFTER successful payment
-        // This step is now moved after the notification trigger.
+        // NOTE: This assumes the cart is NOT cleared at initial order creation for pre-paid orders.
         const userCart = await Cart.findOne({ user: order.user });
         if (userCart) {
           userCart.items = [];
