@@ -61,7 +61,7 @@ async function serverSafeFetch(path: string, options: RequestInit = {}): Promise
  * @returns A new `RequestInit` options object with the authentication cookie header.
  */
 const getAuthFetchOptions = async (options: RequestInit = {}): Promise<RequestInit> => {
-    let requestHeaders: Record<string, string> = { ...options.headers as Record<string, string> };
+    const requestHeaders: Record<string, string> = { ...options.headers as Record<string, string> };
     
     // This logic only runs on the server
     if (typeof window === 'undefined') {
