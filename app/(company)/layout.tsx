@@ -1,6 +1,5 @@
 import Footer from "@/components/customer/footer";
 import Navbar from "@/components/customer/navbar";
-import { PromotionalBannerWrapper } from "@/components/promotional-banner-wrapper";
 
 /**
  * The root layout for the main customer-facing part of the application.
@@ -24,7 +23,6 @@ export default function RootLayout({
       <body>
         {/* The main application navigation bar, present on all pages. */}
         <Navbar />
-        <PromotionalBannerWrapper />
         {/* Renders the active page component passed as children. */}
         <main>{children}</main>
         {/* The main application footer, present on all pages. */}
