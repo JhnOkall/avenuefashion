@@ -165,7 +165,7 @@ const OverviewChart = ({
       />
 
       {/* Bar with chart-1 theme color for better consistency */}
-      <Bar dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+      <Bar dataKey="revenue" fill="var(--chart-2)" radius={[4, 4, 0, 0]} />
     </BarChart>
   </ResponsiveContainer>
 );
