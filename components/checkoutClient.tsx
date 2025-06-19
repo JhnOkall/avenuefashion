@@ -324,7 +324,10 @@ export const CheckoutClient = ({
       amount: Math.round(orderSummary.total * 100),
       currency: "KES",
       ref: order.orderId,
-      metadata: { orderId: order.orderId },
+      metadata: {
+        orderId: order.orderId,
+        project_id: process.env.NEXT_PUBLIC_PROJECT_ID!,
+      },
       callback: (response: any) =>
         router.push(`/success?orderId=${response.reference}`),
       onClose: () => {
