@@ -6,9 +6,8 @@ import {
   ResponsiveContainer,
   XAxis,
   YAxis,
-  Tooltip,
   CartesianGrid,
-  TooltipProps, // Import TooltipProps for custom tooltip typing
+  Tooltip,
 } from "recharts";
 import { DollarSign, ShoppingBag, Users, Package } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,29 +59,54 @@ const StatCard = ({
   </Card>
 );
 
-// --- NEW: Custom Tooltip for the Chart ---
 /**
- * A custom tooltip component styled to match the shadcn/ui theme.
- * This provides a consistent look and feel with other UI elements like popovers.
+ * Custom tooltip component that follows the site's theme using CSS variables
  */
-const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
+const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
-    // Format the date label for readability
-    const formattedLabel = new Date(label).toLocaleDateString("en-KE", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-
     return (
-      <div className="rounded-lg border bg-popover p-2 text-sm shadow-sm text-popover-foreground">
-        <p className="font-bold">{formattedLabel}</p>
-        <p className="text-muted-foreground">
-          Revenue:{" "}
-          <span className="font-medium text-popover-foreground">
-            {formatPrice(payload[0].value as number)}
-          </span>
-        </p>
+      <div
+        className="rounded-lg border p-3 shadow-lg"
+        style={{
+          backgroundColor: "var(--card)",
+          borderColor: "var(--border)",
+          color: "var(--card-foreground)",
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col">
+            <span
+              className="text-[0.70rem] uppercase"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              Date
+            </span>
+            <span
+              className="font-bold text-sm"
+              style={{ color: "var(--foreground)" }}
+            >
+              {new Date(label).toLocaleDateString("en-KE", {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+          <div className="flex flex-col">
+            <span
+              className="text-[0.70rem] uppercase"
+              style={{ color: "var(--muted-foreground)" }}
+            >
+              Revenue
+            </span>
+            <span
+              className="font-bold text-sm"
+              style={{ color: "var(--primary)" }}
+            >
+              {formatPrice(payload[0].value)}
+            </span>
+          </div>
+        </div>
       </div>
     );
   }
@@ -90,9 +114,9 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>)
   return null;
 };
 
-
 /**
  * A responsive bar chart component using Recharts to visualize revenue over time.
+ * This component is now fully themed to match the site's design system using CSS variables.
  *
  * @param {object} props - The component props.
  * @param {Array<{date: string; revenue: number}>} props.data - The dataset for the chart.
@@ -103,43 +127,45 @@ const OverviewChart = ({
   data: { date: string; revenue: number }[];
 }) => (
   <ResponsiveContainer width="100%" height={350}>
-    <BarChart data={data}>
-      {/* Grid lines now use the theme's border color for subtlety */}
-      <CartesianGrid stroke="hsl(var(--border))" strokeDasharray="3 3" />
-      
-      {/* X-axis text now uses muted-foreground for better contrast and theme alignment */}
+    <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+      {/* Grid lines using theme's border color */}
+      <CartesianGrid
+        vertical={false}
+        strokeDasharray="3 3"
+        stroke="var(--border)"
+        opacity={0.3}
+      />
+
+      {/* X-axis with theme colors */}
       <XAxis
         dataKey="date"
-        stroke="hsl(var(--muted-foreground))"
-        fontSize={12}
         tickLine={false}
         axisLine={false}
-        tickFormatter={(value) =>
+        tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+        tickFormatter={(value: string) =>
           new Date(value).toLocaleDateString("en-KE", {
             month: "short",
             day: "numeric",
           })
         }
       />
-      
-      {/* Y-axis text also uses muted-foreground */}
+
+      {/* Y-axis with theme colors */}
       <YAxis
-        stroke="hsl(var(--muted-foreground))"
-        fontSize={12}
         tickLine={false}
         axisLine={false}
-        tickFormatter={(value) => `Ksh. ${Number(value) / 1000}k`}
+        tick={{ fontSize: 12, fill: "var(--muted-foreground)" }}
+        tickFormatter={(value: number) => `Ksh. ${Number(value) / 1000}k`}
       />
-      
-      {/* The Tooltip now uses our custom component for a fully themed experience */}
+
+      {/* Custom themed tooltip */}
       <Tooltip
-        cursor={{ fill: "hsl(var(--accent))" }} // Softer hover effect using the theme's accent color
+        cursor={{ fill: "var(--accent)", opacity: 0.3 }}
         content={<CustomTooltip />}
       />
 
-      {/* The bar color is correctly driven by the theme's primary color.
-          To change this color, update the `--primary` variable in your global CSS. */}
-      <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+      {/* Bar with chart-1 theme color for better consistency */}
+      <Bar dataKey="revenue" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
     </BarChart>
   </ResponsiveContainer>
 );
