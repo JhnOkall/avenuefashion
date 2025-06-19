@@ -9,7 +9,7 @@ import { IProduct, IBrand, IOrder, IAddress, IReview, ICart, ICity, ICounty, ICo
 /**
  * The base URL for all API requests, configured via environment variables.
  */
-const API_BASE_URL = `${process.env.NEXT_PUBLIC_APP_URL}/api`;
+const API_BASE_URL = '/api';
 
 /**
  * Creates the options object for an authenticated server-side fetch request.
