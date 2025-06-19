@@ -37,10 +37,17 @@ async function serverSafeFetch(path: string, options: RequestInit = {}): Promise
       const { headers } = await import('next/headers');
       const host = (await headers()).get('host');
       const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-      const absoluteUrl = `${protocol}://${host}${path}`;
+        const absoluteUrl = `${protocol}://${host}${path}`;
+        
+        const serverOptions = { ...options, headers: { ...options.headers } };
+
+    const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+    if (bypassSecret) {
+      (serverOptions.headers as Record<string, string>)['x-vercel-protection-bypass'] = bypassSecret;
+    }
 
       // Use the absolute URL for the server-side fetch
-      return fetch(absoluteUrl, options);
+      return fetch(absoluteUrl, serverOptions);
     } catch (error) {
       console.warn('Could not import next/headers or get host header. Falling back to relative path.', error);
       // Fallback to relative path if headers can't be accessed
