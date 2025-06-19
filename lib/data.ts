@@ -84,18 +84,22 @@ const getAuthFetchOptions = async (options: RequestInit = {}): Promise<RequestIn
     return { ...options, headers: requestHeaders };
 };
 
-// Helper function for more robust error handling
+/**
+ * A robust response handler that reads the body only once.
+ * - On success (2xx status), it parses the body as JSON.
+ * - On failure (non-2xx status), it reads the body as text to include in the thrown error.
+ * @param response The Response object from a fetch call.
+ * @returns A promise that resolves to the parsed JSON data.
+ * @throws Will throw a detailed error if the response is not ok.
+ */
 async function handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-        let errorBody;
-        try {
-            errorBody = await response.json();
-        } catch {
-            errorBody = await response.text();
-        }
-        const errorMessage = typeof errorBody === 'object' && errorBody.message ? errorBody.message : JSON.stringify(errorBody);
-        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorMessage}`);
+        // Read the error body as text once.
+        const errorText = await response.text();
+        // Throw an error with all available details.
+        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
     }
+    // On success, read the body as JSON once.
     return response.json();
 }
 
