@@ -324,9 +324,10 @@ export const CheckoutClient = ({
       amount: Math.round(orderSummary.total * 100),
       currency: "KES",
       ref: order.orderId,
+      subaccount: process.env.NEXT_PUBLIC_PAYSTACK_SUBACCOUNT!,
       metadata: {
         orderId: order.orderId,
-        project_id: process.env.NEXT_PUBLIC_PROJECT_ID!,
+        subaccount: process.env.NEXT_PUBLIC_PAYSTACK_SUBACCOUNT!,
       },
       callback: (response: any) =>
         router.push(`/success?orderId=${response.reference}`),
