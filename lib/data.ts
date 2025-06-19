@@ -1,5 +1,4 @@
 import { IProduct, IBrand, IOrder, IAddress, IReview, ICart, ICity, ICounty, ICountry, IUser, IVoucher } from "@/types";
-import { headers } from 'next/headers';
 
 /**
  * @file Robust API data fetching utilities for the Next.js application.
@@ -34,12 +33,19 @@ async function serverSafeFetch(path: string, options: RequestInit = {}): Promise
   // Check if we are executing on the server
   if (typeof window === 'undefined') {
     // On the server, we need to construct an absolute URL
-    const host = (await headers()).get('host');
-    const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-    const absoluteUrl = `${protocol}://${host}${path}`;
+    try {
+      const { headers } = await import('next/headers');
+      const host = (await headers()).get('host');
+      const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
+      const absoluteUrl = `${protocol}://${host}${path}`;
 
-    // Use the absolute URL for the server-side fetch
-    return fetch(absoluteUrl, options);
+      // Use the absolute URL for the server-side fetch
+      return fetch(absoluteUrl, options);
+    } catch (error) {
+      console.warn('Could not import next/headers or get host header. Falling back to relative path.', error);
+      // Fallback to relative path if headers can't be accessed
+      return fetch(path, options);
+    }
   }
 
   // On the client, a relative path is sufficient and preferred
