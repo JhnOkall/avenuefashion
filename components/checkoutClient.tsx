@@ -3,7 +3,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import Link from "next/link";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -43,67 +42,92 @@ import {
   validateVoucher,
 } from "@/lib/data";
 
+// --- Modernized Paystack Types ---
+
+// 1. Updated global type for the modern, class-based PaystackPop
 declare global {
   interface Window {
-    PaystackPop: {
-      setup(options: any): {
-        openIframe(): void;
-      };
+    PaystackPop?: new (config: PaystackConfig) => {
+      open: () => void;
+      close: () => void;
     };
   }
 }
+
+// 2. A strong type for the Paystack configuration object
+interface PaystackConfig {
+  key: string;
+  email: string;
+  amount: number;
+  currency: string;
+  ref: string;
+  subaccount: string;
+  metadata: {
+    orderId: string;
+    subaccount: string;
+    [key: string]: any;
+  };
+  callback: (response: any) => void;
+  onClose: () => void;
+}
+
+// 3. Clearer state management for the checkout process
+type ProcessingState =
+  | "idle"
+  | "placing_order"
+  | "awaiting_payment"
+  | "verifying";
+
+// --- Helper Components & Functions ---
 
 const formatPrice = (price: number) =>
   new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES" }).format(
     price
   );
 
-/**
- * A new sub-component to display a summary of items in the order.
- */
-const OrderItemsCard = ({ cart }: { cart: ICart }) => {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Your Items ({cart.items.length})</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {cart.items.map((item: ICartItem) => (
-          <div
-            key={`${item.product._id.toString()}-${item.variantId?.toString()}`}
-            className="flex items-start gap-4"
-          >
-            <div className="relative h-16 w-16 shrink-0 rounded-md border">
-              <Image
-                src={item.imageUrl}
-                alt={item.name}
-                fill
-                className="object-contain"
-                sizes="64px"
-              />
-            </div>
-            <div className="flex-grow">
-              <p className="font-medium">{item.name}</p>
-              {item.variantOptions && (
-                <p className="text-sm text-muted-foreground">
-                  {Object.entries(item.variantOptions)
-                    .map(([key, value]) => `${key}: ${value}`)
-                    .join(", ")}
-                </p>
-              )}
+const OrderItemsCard = ({ cart }: { cart: ICart }) => (
+  <Card>
+    <CardHeader>
+      <CardTitle>Your Items ({cart.items.length})</CardTitle>
+    </CardHeader>
+    <CardContent className="space-y-4">
+      {cart.items.map((item: ICartItem) => (
+        <div
+          key={`${item.product._id.toString()}-${item.variantId?.toString()}`}
+          className="flex items-start gap-4"
+        >
+          <div className="relative h-16 w-16 shrink-0 rounded-md border">
+            <Image
+              src={item.imageUrl}
+              alt={item.name}
+              fill
+              className="object-contain"
+              sizes="64px"
+            />
+          </div>
+          <div className="flex-grow">
+            <p className="font-medium">{item.name}</p>
+            {item.variantOptions && (
               <p className="text-sm text-muted-foreground">
-                Qty: {item.quantity}
+                {Object.entries(item.variantOptions)
+                  .map(([key, value]) => `${key}: ${value}`)
+                  .join(", ")}
               </p>
-            </div>
-            <p className="font-medium">
-              {formatPrice(item.price * item.quantity)}
+            )}
+            <p className="text-sm text-muted-foreground">
+              Qty: {item.quantity}
             </p>
           </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-};
+          <p className="font-medium">
+            {formatPrice(item.price * item.quantity)}
+          </p>
+        </div>
+      ))}
+    </CardContent>
+  </Card>
+);
+
+// --- Main Checkout Component ---
 
 type UserSession = { name?: string | null; email?: string | null; id?: string };
 interface CheckoutClientProps {
@@ -121,6 +145,7 @@ export const CheckoutClient = ({
 }: CheckoutClientProps) => {
   const router = useRouter();
 
+  // Component state
   const [deliveryOption, setDeliveryOption] = useState("use-saved");
   const [shippingDetails, setShippingDetails] = useState({
     name: user.name ?? "",
@@ -132,7 +157,8 @@ export const CheckoutClient = ({
     null
   );
   const [paymentMethod, setPaymentMethod] = useState("paystack");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [processingState, setProcessingState] =
+    useState<ProcessingState>("idle");
   const [selectedCountryId, setSelectedCountryId] = useState("");
   const [selectedCountyId, setSelectedCountyId] = useState("");
   const [selectedCityId, setSelectedCityId] = useState("");
@@ -144,6 +170,7 @@ export const CheckoutClient = ({
   const [appliedVoucher, setAppliedVoucher] = useState<IVoucher | null>(null);
   const [isApplyingVoucher, setIsApplyingVoucher] = useState(false);
 
+  // --- Address and Location Logic ---
   const setFormFromAddress = async (address: IAddress) => {
     setSelectedAddressId(address._id.toString());
     setShippingDetails({
@@ -203,7 +230,6 @@ export const CheckoutClient = ({
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setShippingDetails({ ...shippingDetails, [e.target.id]: e.target.value });
   };
-
   const onCountryChange = async (countryId: string) => {
     setSelectedCountryId(countryId);
     setSelectedCountyId("");
@@ -232,6 +258,7 @@ export const CheckoutClient = ({
     }
   };
 
+  // --- Order Calculation and Vouchers ---
   const orderSummary = useMemo(() => {
     const subtotal = cart.items.reduce(
       (acc, item) => acc + item.price * item.quantity,
@@ -264,22 +291,73 @@ export const CheckoutClient = ({
       setIsApplyingVoucher(false);
     }
   };
-
   const handleRemoveVoucher = () => {
     setAppliedVoucher(null);
     setVoucherCode("");
     toast.info("Voucher removed.");
   };
 
+  // --- ROBUST PAYMENT VERIFICATION ---
+  /**
+   * Polls the backend to verify if the order status has been updated to 'Completed'.
+   * @param {string} orderId The ID of the order to verify (using the order's custom 'orderId' field).
+   * @returns {Promise<boolean>} A promise that resolves to true if the order is completed.
+   */
+  const verifyPayment = async (orderId: string): Promise<boolean> => {
+    return new Promise((resolve) => {
+      let attempts = 0;
+      const maxAttempts = 15; // Poll for 30 seconds
+      const interval = 2000; // 2 seconds
+
+      const poll = setInterval(async () => {
+        attempts++;
+        try {
+          const res = await fetch(`/api/orders/${orderId}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === "Completed") {
+              clearInterval(poll);
+              resolve(true);
+            }
+          }
+        } catch (error) {
+          console.error("Polling error:", error);
+        }
+
+        if (attempts >= maxAttempts) {
+          clearInterval(poll);
+          resolve(false);
+        }
+      }, interval);
+    });
+  };
+
+  // --- MODERNIZED CHECKOUT FLOW ---
   const handleCheckout = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
+
+    // 1. Validate Paystack configuration if it's the selected payment method
+    if (paymentMethod === "paystack") {
+      const paystackPublicKey = process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY;
+      const subaccountCode = process.env.NEXT_PUBLIC_PAYSTACK_SUBACCOUNT;
+      if (!paystackPublicKey || !subaccountCode) {
+        toast.error("Payment configuration error. Please contact support.");
+        console.error("FATAL: Paystack public key or subaccount is missing.");
+        return;
+      }
+    }
+
+    setProcessingState("placing_order");
+    const loadingToast = toast.loading("Placing your order...");
+
     try {
+      // 2. Determine or create the delivery address
       let finalAddressId = selectedAddressId;
       if (deliveryOption === "use-new") {
         if (!shippingDetails.streetAddress.trim() || !selectedCityId) {
           toast.warning("Please complete all new address fields.");
-          setIsSubmitting(false);
+          setProcessingState("idle");
+          toast.dismiss(loadingToast);
           return;
         }
         const newAddress = await createAddress({
@@ -296,47 +374,96 @@ export const CheckoutClient = ({
 
       if (!finalAddressId) {
         toast.warning("Please select a delivery address.");
-        setIsSubmitting(false);
+        setProcessingState("idle");
+        toast.dismiss(loadingToast);
         return;
       }
 
+      // 3. Place the order in the database (status will be 'Pending')
       const newOrder = await placeOrder({
         addressId: finalAddressId,
         paymentMethod,
         voucherCode: appliedVoucher?.code,
       });
 
+      toast.dismiss(loadingToast);
+
+      // 4. Handle payment based on the chosen method
       if (paymentMethod === "paystack") {
-        launchPaystackPopup(newOrder);
+        setProcessingState("awaiting_payment");
+        const paystackConfig: PaystackConfig = {
+          key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
+          email: shippingDetails.email,
+          amount: Math.round(orderSummary.total * 100),
+          currency: "KES",
+          ref: newOrder.orderId, // Use the unique orderId from your backend
+          subaccount: process.env.NEXT_PUBLIC_PAYSTACK_SUBACCOUNT!,
+          metadata: {
+            orderId: newOrder.orderId,
+            subaccount: process.env.NEXT_PUBLIC_PAYSTACK_SUBACCOUNT!,
+          },
+          callback: async () => {
+            setProcessingState("verifying");
+            const verificationToast = toast.loading(
+              "Payment received, verifying..."
+            );
+            const isVerified = await verifyPayment(newOrder.orderId);
+            toast.dismiss(verificationToast);
+            if (isVerified) {
+              toast.success("Order confirmed!");
+              router.push(`/success?orderId=${newOrder.orderId}`);
+            } else {
+              toast.info("Your payment is processing.", {
+                description:
+                  "We'll confirm your order shortly. Check its status in your dashboard.",
+              });
+              router.push("/orders"); // Redirect to order history
+            }
+          },
+          onClose: () => {
+            if (processingState === "awaiting_payment") {
+              toast.info("Payment was cancelled.");
+              setProcessingState("idle");
+            }
+          },
+        };
+
+        if (!window.PaystackPop) {
+          toast.error("Payment gateway failed to load. Please refresh.");
+          setProcessingState("idle");
+          return;
+        }
+
+        const handler = new window.PaystackPop(paystackConfig);
+        handler.open();
       } else {
+        // Handle 'Pay on Delivery'
+        toast.success("Order placed successfully!");
         router.push(`/success?orderId=${newOrder.orderId}`);
       }
     } catch (error: any) {
+      toast.dismiss(loadingToast);
       toast.error("Order Failed", { description: error.message });
-      setIsSubmitting(false);
+      setProcessingState("idle");
     }
   };
 
-  const launchPaystackPopup = (order: IOrder) => {
-    const handler = window.PaystackPop.setup({
-      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY!,
-      email: shippingDetails.email,
-      amount: Math.round(orderSummary.total * 100),
-      currency: "KES",
-      ref: order.orderId,
-      subaccount: process.env.NEXT_PUBLIC_PAYSTACK_SUBACCOUNT!,
-      metadata: {
-        orderId: order.orderId,
-        subaccount: process.env.NEXT_PUBLIC_PAYSTACK_SUBACCOUNT!,
-      },
-      callback: (response: any) =>
-        router.push(`/success?orderId=${response.reference}`),
-      onClose: () => {
-        toast.info("Payment Canceled");
-        setIsSubmitting(false);
-      },
-    });
-    handler.openIframe();
+  // --- UI Logic ---
+  const isProcessing = processingState !== "idle";
+
+  const getButtonText = () => {
+    switch (processingState) {
+      case "placing_order":
+        return "Placing Order...";
+      case "awaiting_payment":
+        return "Awaiting Payment...";
+      case "verifying":
+        return "Verifying...";
+      default:
+        return paymentMethod === "paystack"
+          ? `Pay ${formatPrice(orderSummary.total)}`
+          : "Place Order on Delivery";
+    }
   };
 
   return (
@@ -348,7 +475,6 @@ export const CheckoutClient = ({
         <div className="lg:flex lg:items-start lg:gap-12 xl:gap-16">
           <div className="min-w-0 flex-1 space-y-8">
             <OrderItemsCard cart={cart} />
-
             <Card>
               <CardHeader>
                 <CardTitle>Delivery Details</CardTitle>
@@ -659,16 +785,12 @@ export const CheckoutClient = ({
                   type="submit"
                   size="lg"
                   className="w-full"
-                  disabled={isSubmitting}
+                  disabled={isProcessing}
                 >
-                  {isSubmitting && (
+                  {isProcessing && (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   )}
-                  {isSubmitting
-                    ? "Processing..."
-                    : paymentMethod === "paystack"
-                    ? `Pay ${formatPrice(orderSummary.total)}`
-                    : "Place Order on Delivery"}
+                  {getButtonText()}
                 </Button>
               </CardFooter>
             </Card>
