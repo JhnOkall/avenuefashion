@@ -177,6 +177,9 @@ export const fetchProducts = async (params: FetchProductsParams): Promise<Produc
   if (params.order) queryParams.append("order", params.order);
   if (params.searchQuery) queryParams.append("searchQuery", params.searchQuery);
 
+  const fetchUrl = `${API_BASE_URL}/products?${queryParams.toString()}`;
+  console.log("SERVER-SIDE FETCH: Attempting to fetch from:", fetchUrl);
+
   try {
     const response = await fetch(`${API_BASE_URL}/products?${queryParams.toString()}`);
 
